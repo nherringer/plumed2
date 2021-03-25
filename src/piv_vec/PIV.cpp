@@ -164,17 +164,24 @@ When using PIV please cite \cite pipolo2017navigating .
 class PIV      : public Colvar
 {
 private:
+
+  // General.
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch=*stopwatch_fwd;
+
+  // PIV related.
   int updatePIV;
   size_t Nprec;
   unsigned Natm,Nlist,NLsize;
-  double Fvol,Vol0,m_PIVdistance;
+  double Fvol,Vol0,m_PIVdistance; // m_PIVdistance not required? [[ SD ]]
   std::string ref_file;
   NeighborList *nlall;
   std::vector<SwitchingFunction> sfs;
+
+  // PIV vector.
   std::vector<std:: vector<double> > rPIV;
+
   std::vector<double> scaling,r00;
   std::vector<double> nl_skin;
   std::vector<double> fmass;
@@ -188,7 +195,7 @@ private:
   bool Svol,cross,direct,doneigh,test,CompDer,com;
 public:
   static void registerKeywords( Keywords& keys );
-  explicit PIV(const ActionOptions&);
+  explicit PIV(const ActionOptions&); // [[ PIV should be changed to PIVConfig everywhere; SD ]]
   ~PIV();
   // active methods:
   virtual void calculate();
@@ -205,8 +212,8 @@ void PIV::registerKeywords( Keywords& keys )
            "Details of the various switching "
            "functions you can use are provided on \\ref switchingfunction.");
   keys.add("compulsory","PRECISION","the precision for approximating reals with integers in sorting.");
-  keys.add("compulsory","CONFIG_FILE","PDB file name that contains the \\f$i\\f$th reference structure.");
-  keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV.");
+  keys.add("compulsory","CONFIG_FILE","PDB file name that contains the \\f$i\\f$th reference structure."); //[[ Not required; SD ]]
+  keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV."); // [[ Why is this required; SD ]] 
   keys.add("compulsory","SORT","Whether to sort or not the PIV block.");
   keys.add("compulsory","ATOMTYPES","The atom types to use for PIV.");
   keys.add("optional","SFACTOR","Scale the PIV-distance by such block-specific factor");
@@ -226,7 +233,7 @@ void PIV::registerKeywords( Keywords& keys )
   keys.reset_style("SWITCH","compulsory");
 }
 
-PIV::PIV(const ActionOptions&ao):
+PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values and declaring size of vectors; SD ]]
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
   serial(false),
@@ -238,7 +245,7 @@ PIV::PIV(const ActionOptions&ao):
   NLsize(1),
   Fvol(1.),
   Vol0(0.),
-  m_PIVdistance(0.),
+  m_PIVdistance(0.), // [[ Not required?; SD ]]
   rPIV(std:: vector<std:: vector<double> >(Nlist)),
   scaling(std:: vector<double>(Nlist)),
   r00(std:: vector<double>(Nlist)),
@@ -262,7 +269,7 @@ PIV::PIV(const ActionOptions&ao):
 
   // Precision on the real-to-integer transformation for the sorting
   parse("PRECISION",Nprec);
-  if(Nprec<2) error("Precision must be => 2");
+  if(Nprec<2) error("Precision must be => 2"); // [[ Is that greater than equal 2 notation?; SD ]]
 
   // PBC
   bool nopbc=!pbc;
@@ -334,6 +341,7 @@ PIV::PIV(const ActionOptions&ao):
   parseVector("ATOMTYPES",atype);
   //if(atype.size()!=getNumberOfArguments() && atype.size()!=0) error("not enough values for ATOMTYPES");
 
+  // [[ Following is not required; SD ]]
   // Reference PDB file
   parse("CONFIG_FILE",ref_file);
   PDB mypdb;
@@ -355,7 +363,7 @@ PIV::PIV(const ActionOptions&ao):
   NLsize=mypdb.getAtomNumbers().size();
   // In the following P stands for Point (either an Atom or a COM)
   unsigned resnum=0;
-  // Presind (array size: number of residues) contains the contains the residue number
+  // Presind (array size: number of residues) contains the residue number
   //   this is because the residue numbers may not always be ordered from 1 to resnum
   std:: vector<unsigned> Presind;
   // Build Presind
@@ -389,8 +397,9 @@ PIV::PIV(const ActionOptions&ao):
     fmass.resize(NLsize,0.);
   }
   log << "Total COM/Atoms: " << Natm*resnum << " \n";
+
   // Build lists of Atoms/COMs for NLists
-  //   comatm filled also for non_COM calculation for analysis purposes
+  //   comatm filled also for non_COM calculation for analysis purposes [[ Probably not required now;  SD ]]
   for (unsigned j=0; j<Natm; j++) {
     unsigned oind;
     for (unsigned i=0; i<Pind0.size(); i++) {
@@ -443,6 +452,9 @@ PIV::PIV(const ActionOptions&ao):
     }
     log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
   }
+
+
+  // [[ Relevant section; SD ]]
 
   // This is to build the list with all the atoms
   std:: vector<AtomNumber> listall;
