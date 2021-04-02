@@ -1,0 +1,7 @@
+The complete_script.sh should work to run everything in sequence (although I haven't actually tried it myself yet), but you can also run the individual scripts themselves (which is what I did).
+You will need to get the md.xtc file for this system from the cluster (since it's too large for GitHub). The path to the 100ns trajectory for the system is:
+`/project2/andrewferguson/Nick/MESA/GenPIV/md.xtc`
+and the path to the 500ns trajectory is:
+`/project2/andrewferguson/Nick/MESA/GenPIV/simple_run/3_md/md.xtc`
+
+Once you have the trajectory, you can run `run_plumed.sh` which will process the trajectory and produce the PIV representation (in a new text file with some other garbage text) using the plumed_driver_test.dat file. Next, the clean.sh script will make a copy (clean.out) of the output PIV file (which I've been calling Nlist24.out) and then remove any text we don't care about from the copy as well as standardize the formatting. Finally, the check_clean.py script converts the out file into a .npy file (which is what I use to train the VAE) and checks the shape of the array. Because I have specified that there be 24 neighbors for any C-O PIV block, that means there should be 24*24=576 elements  + the carbon interactions which are (24*23)/2=276 for a total of 852 elements per frame (which is why that number appears in the check_clean.py reshaping).
