@@ -35,21 +35,21 @@ namespace PLMD
 namespace piv
 {
 
-//+PLUMEDOC PIVMOD_COLVAR PIV_Vec
+//+PLUMEDOC PIVMOD_COLVAR PIV
 /*
-Calculates the PIV of a given configuration.
+Calculates the PIV-distance.
 
-PIV of a given configuration of the system \cite gallet2013structural \cite pipolo2017navigating
-during the dynamics.
+PIV distance is the squared Cartesian distance between the PIV \cite gallet2013structural \cite pipolo2017navigating
+associated to the configuration of the system during the dynamics and a reference configuration provided
+as input (PDB file format).
+PIV can be used together with \ref FUNCPATHMSD to define a path in the PIV space.
 
 \par Examples
 
-The following example calculates PIV of three configurations in Config1.pdb, Config2.pdb and Config3.pdb
+The following example calculates PIV-distances from three reference configurations in Ref1.pdb, Ref2.pdb and Ref3.pdb
 and prints the results in a file named colvar.
 Three atoms (PIVATOMS=3) with names (pdb file) A B and C are used to construct the PIV and all PIV blocks (AA, BB, CC, AB, AC, BC) are considered.
-
-SFACTOR is a scaling factor that multiplies the contribution to the PIV-distance given by the single PIV block. [[ Is this required? SD ]]
-
+SFACTOR is a scaling factor that multiplies the contribution to the PIV-distance given by the single PIV block.
 NLIST sets the use of neighbor lists for calculating atom-atom distances.
 The SWITCH keyword specifies the parameters of the switching function that transforms atom-atom distances.
 SORT=1 means that the PIV block elements are sorted (SORT=0 no sorting.)
@@ -59,10 +59,10 @@ The sorting operation within each PIV block is performed using the counting sort
 
 \plumedfile
 PIV ...
-LABEL=PIV1 // [[ SD] ]
+LABEL=Pivd1
 PRECISION=1000
 NLIST
-CONFIG_FILE=Config1.pdb
+REF_FILE=Ref1.pdb
 PIVATOMS=3
 ATOMTYPES=A,B,C
 SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
@@ -78,10 +78,10 @@ NL_STRIDE=10,10,10,10,10,10
 NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
 ... PIV
 PIV ...
-LABEL=PIV2
+LABEL=Pivd2
 PRECISION=1000
 NLIST
-CONFIG_FILE=Config2.pdb
+REF_FILE=Ref2.pdb
 PIVATOMS=3
 ATOMTYPES=A,B,C
 SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
@@ -97,10 +97,10 @@ NL_STRIDE=10,10,10,10,10,10
 NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
 ... PIV
 PIV ...
-LABEL=PIV3
+LABEL=Pivd3
 PRECISION=1000
 NLIST
-CONFIG_FILE=Config3.pdb
+REF_FILE=Ref3.pdb
 PIVATOMS=3
 ATOMTYPES=A,B,C
 SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
@@ -116,7 +116,7 @@ NL_STRIDE=10,10,10,10,10,10
 NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
 ... PIV
 
-PRINT ARG=PIV1,PIV2,PIV3 FILE=colvar
+PRINT ARG=Pivd1,Pivd2,Pivd3 FILE=colvar
 \endplumedfile
 
 WARNING:
@@ -129,7 +129,8 @@ ATOM      1  OW1 wate    1      15.630  19.750   1.520  1.00  0.00
 
 In each pdb frame, atoms must be numbered in the same order and with the same element symbol as in the input of the MD program.
 
-The following example calculates the PIV of the configuration Config1.pdb
+The following example calculates the PIV-distances from two reference configurations Ref1.pdb and Ref2.pdb
+and uses PIV-distances to define a Path Collective Variable (\ref FUNCPATHMSD) with only two references (Ref1.pdb and Ref2.pdb).
 With the VOLUME keyword one scales the atom-atom distances by the cubic root of the ratio between the specified value and the box volume of the initial step of the trajectory file.
 
 \plumedfile
@@ -138,7 +139,7 @@ LABEL=c1
 PRECISION=1000
 VOLUME=12.15
 NLIST
-CONFIG_FILE=Config1.pdb
+REF_FILE=Ref1.pdb
 PIVATOMS=2
 ATOMTYPES=A,B
 ONLYDIRECT
@@ -150,8 +151,27 @@ NL_CUTOFF=1.2,1.2
 NL_STRIDE=10,10
 NL_SKIN=0.1,0.1
 ... PIV
+PIV ...
+LABEL=c2
+PRECISION=1000
+VOLUME=12.15
+NLIST
+REF_FILE=Ref2.pdb
+PIVATOMS=2
+ATOMTYPES=A,B
+ONLYDIRECT
+SFACTOR=1.0,0.2
+SORT=1,1
+SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
+SWITCH2={RATIONAL R_0=0.4 MM=10 NN=5}
+NL_CUTOFF=1.2,1.2
+NL_STRIDE=10,10
+NL_SKIN=0.1,0.1
+... PIV
 
-PRINT ARG=c1 STRIDE=500  FILE=colvar FMT=%15.6f
+p1: FUNCPATHMSD ARG=c1,c2 LAMBDA=0.180338
+METAD ARG=p1.s,p1.z SIGMA=0.01,0.2 HEIGHT=0.8 PACE=500   LABEL=res
+PRINT ARG=c1,c2,p1.s,p1.z,res.bias STRIDE=500  FILE=colvar FMT=%15.6f
 \endplumedfile
 
 When using PIV please cite \cite pipolo2017navigating .
@@ -164,24 +184,17 @@ When using PIV please cite \cite pipolo2017navigating .
 class PIV      : public Colvar
 {
 private:
-
-  // General.
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch=*stopwatch_fwd;
-
-  // PIV related.
   int updatePIV;
   size_t Nprec;
   unsigned Natm,Nlist,NLsize;
-  double Fvol,Vol0,m_PIVdistance; // m_PIVdistance not required? [[ SD ]]
+  double Fvol,Vol0,m_PIVdistance;
   std::string ref_file;
   NeighborList *nlall;
   std::vector<SwitchingFunction> sfs;
-
-  // PIV vector.
   std::vector<std:: vector<double> > rPIV;
-
   std::vector<double> scaling,r00;
   std::vector<double> nl_skin;
   std::vector<double> fmass;
@@ -195,7 +208,7 @@ private:
   bool Svol,cross,direct,doneigh,test,CompDer,com;
 public:
   static void registerKeywords( Keywords& keys );
-  explicit PIV(const ActionOptions&); // [[ PIV should be changed to PIVConfig everywhere; SD ]]
+  explicit PIV(const ActionOptions&);
   ~PIV();
   // active methods:
   virtual void calculate();
@@ -212,8 +225,8 @@ void PIV::registerKeywords( Keywords& keys )
            "Details of the various switching "
            "functions you can use are provided on \\ref switchingfunction.");
   keys.add("compulsory","PRECISION","the precision for approximating reals with integers in sorting.");
-  keys.add("compulsory","CONFIG_FILE","PDB file name that contains the \\f$i\\f$th reference structure."); //[[ Not required; SD ]]
-  keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV."); // [[ Why is this required; SD ]] 
+  keys.add("compulsory","REF_FILE","PDB file name that contains the \\f$i\\f$th reference structure.");
+  keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV.");
   keys.add("compulsory","SORT","Whether to sort or not the PIV block.");
   keys.add("compulsory","ATOMTYPES","The atom types to use for PIV.");
   keys.add("optional","SFACTOR","Scale the PIV-distance by such block-specific factor");
@@ -233,7 +246,7 @@ void PIV::registerKeywords( Keywords& keys )
   keys.reset_style("SWITCH","compulsory");
 }
 
-PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values and declaring size of vectors; SD ]]
+PIV::PIV(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
   serial(false),
@@ -245,7 +258,7 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
   NLsize(1),
   Fvol(1.),
   Vol0(0.),
-  m_PIVdistance(0.), // [[ Not required?; SD ]]
+  m_PIVdistance(0.),
   rPIV(std:: vector<std:: vector<double> >(Nlist)),
   scaling(std:: vector<double>(Nlist)),
   r00(std:: vector<double>(Nlist)),
@@ -269,7 +282,7 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
 
   // Precision on the real-to-integer transformation for the sorting
   parse("PRECISION",Nprec);
-  if(Nprec<2) error("Precision must be => 2"); // [[ Is that greater than equal 2 notation?; SD ]]
+  if(Nprec<2) error("Precision must be => 2");
 
   // PBC
   bool nopbc=!pbc;
@@ -341,9 +354,8 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
   parseVector("ATOMTYPES",atype);
   //if(atype.size()!=getNumberOfArguments() && atype.size()!=0) error("not enough values for ATOMTYPES");
 
-  // [[ Following is not required; SD ]]
   // Reference PDB file
-  parse("CONFIG_FILE",ref_file);
+  parse("REF_FILE",ref_file);
   PDB mypdb;
   FILE* fp=fopen(ref_file.c_str(),"r");
   if (fp!=NULL) {
@@ -363,7 +375,7 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
   NLsize=mypdb.getAtomNumbers().size();
   // In the following P stands for Point (either an Atom or a COM)
   unsigned resnum=0;
-  // Presind (array size: number of residues) contains the residue number
+  // Presind (array size: number of residues) contains the contains the residue number
   //   this is because the residue numbers may not always be ordered from 1 to resnum
   std:: vector<unsigned> Presind;
   // Build Presind
@@ -397,9 +409,8 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
     fmass.resize(NLsize,0.);
   }
   log << "Total COM/Atoms: " << Natm*resnum << " \n";
-
   // Build lists of Atoms/COMs for NLists
-  //   comatm filled also for non_COM calculation for analysis purposes [[ Probably not required now;  SD ]]
+  //   comatm filled also for non_COM calculation for analysis purposes
   for (unsigned j=0; j<Natm; j++) {
     unsigned oind;
     for (unsigned i=0; i<Pind0.size(); i++) {
@@ -453,9 +464,6 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
     log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
   }
 
-
-  // [[ Relevant section; SD ]]
-
   // This is to build the list with all the atoms
   std:: vector<AtomNumber> listall;
   for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
@@ -466,7 +474,7 @@ PIV::PIV(const ActionOptions&ao): // [[ Action options seem to be default values
   Nlist=0;
   // Direct adds the A-A ad B-B blocks (N)
   if(direct) {
-    Nlist=Nlist+unsigned(Natm);
+    =Nlist+unsigned(Natm);
   }
   // Cross adds the A-B blocks (N*(N-1)/2)
   if(cross) {
@@ -718,6 +726,9 @@ void PIV::calculate()
   // The following are probably needed as static arrays
   static int prev_stp=-1;
   static int init_stp=1;
+  static int diff=0;
+  static int next_iteration=0;
+  static double padding=0.0;
   static std:: vector<std:: vector<Vector> > prev_pos(Nlist);
   static std:: vector<std:: vector<double> > cPIV(Nlist);
   static std:: vector<std:: vector<int> > Atom0(Nlist);
@@ -1082,6 +1093,29 @@ void PIV::calculate()
         limit = cPIV[j].size();
       } else {
         limit = rPIV[j].size();
+      }
+      if(limit != 0) {
+        for(unsigned i=rank; i<limit; i+=stride) {
+          if(i < 24) {
+            if((limit == 1) or (limit > 24)) {
+              log.printf("%12.6f\n",cPIV[j][i]);
+            } else {
+              diff = 24 - int(limit);
+              if(i == 0) {
+                for(int n=0; n<diff; n+=1) {
+                  padding=0.000000;
+                  log.printf("%12.6f\n",padding);
+                }
+                log.printf("%12.6f\n",cPIV[j][i]);
+              } else {
+                log.printf("%12.6f\n",cPIV[j][i]);
+              }
+            } 
+          }
+        }
+      } else {
+        padding=0.000000;
+        log.printf("%12.6f\n",padding);
       }
       for(unsigned i=rank; i<limit; i+=stride) {
         unsigned i0=0;
