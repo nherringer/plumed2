@@ -27,7 +27,6 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <cmath>
 #include <iostream>
-#include <stdio.h>
 
 using namespace std;
 
@@ -206,8 +205,7 @@ private:
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
   Tensor m_virial;
-  // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
-  bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
+  bool Svol,cross,direct,doneigh,test,CompDer,com;
 public:
   static void registerKeywords( Keywords& keys );
   explicit PIV(const ActionOptions&);
@@ -242,8 +240,6 @@ void PIV::registerKeywords( Keywords& keys )
   keys.addFlag("NLIST",false,"Use a neighbor list for distance calculations.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.addFlag("TIMER",false,"Perform timing analysis on heavy loops.");
-  keys.addFlag("PIVREP",false,"Post process a trajectory from cartesian coordinates to a PIV representation.");
-  keys.add("optional","NL_CONSTANT_SIZE","Fix the number of elements in all blocks to be constant. Blocks which have a total number of possible elements less than the chosen constant size will not be affected.");
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
   keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
@@ -280,8 +276,7 @@ PIV::PIV(const ActionOptions&ao):
   doneigh(false),
   test(false),
   CompDer(false),
-  com(false),
-  cart2piv(false)
+  com(false)
 {
   log << "Starting PIV Constructor\n";
 
@@ -321,9 +316,6 @@ PIV::PIV(const ActionOptions&ao):
 
   // Test
   parseFlag("TEST",test);
-
-  // PIV Representation
-  parseFlag("PIVREP",cart2piv);
 
   // UPDATEPIV
   if(keywords.exists("UPDATEPIV")) {
@@ -1073,42 +1065,6 @@ void PIV::calculate()
     }
     log.printf("This was a test, now exit \n");
     exit();
-  }
-
-  if(cart2piv) {
-    // open a file in append mode.
-    FILE *piv_rep_file = NULL;
-    piv_rep_file = fopen("PIV_representation.dat", "a");
-    if(keywords.exists("NL_CONSTANT_SIZE")) {
-      int NL_const_size;
-      parse("NL_CONSTANT_SIZE",NL_const_size);
-      if(limit != 0) {
-        for(unsigned i=rank; i<limit; i+=stride) {
-          if(i < NL_const_size) {
-            if((limit == 1) or (limit > NL_const_size)) {
-              fprintf(piv_rep_file, "%12.6f\n", cPIV[j][i]);
-            } else {
-              diff = NL_const_size - int(limit);
-              if(i == 0) {
-                for(int n=0; n<diff; n+=1) {
-                  padding=0.000000;
-                  fprintf(piv_rep_file, "%12.6f\n", padding);
-                }
-                fprintf(piv_rep_file, "%12.6f\n", cPIV[j][i]);
-              } else {
-                fprintf(piv_rep_file, "%12.6f\n", cPIV[j][i]);
-              }
-            } 
-          }
-        }
-      } else {
-        padding=0.000000;
-        fprintf(piv_rep_file, "%12.6f\n", padding);
-      }
-    } else {
-      // Prints out in the same PIV block element format as TEST
-      fprintf(piv_rep_file, "%12.6f\n", cPIV[j][i]);
-    }
   }
 
   if(timer) stopwatch.start("4 Build For Derivatives");
