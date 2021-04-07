@@ -1095,24 +1095,26 @@ void PIV::calculate()
       }
       if(limit != 0) {
         if(NL_const_size > 0) {
-          for(unsigned i=rank; i<limit; i+=stride) {
-            if(i < NL_const_size) {
-              if((limit == 1) or (limit > NL_const_size)) {
+          int start_val=0;
+          if(limit >= NL_const_size) {
+            start_val = limit - NL_const_size;
+          }
+          for(unsigned i=start_val; i<limit; i+=stride) {
+            if((limit == 1) or (limit > NL_const_size)) {
+              fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+            } else {
+              diff = NL_const_size - int(limit);
+              if(i == 0) {
+                for(int n=0; n<diff; n++) {
+                  padding=0.000000;
+                  // fprintf(piv_rep_file, "Padding Loop\n");
+                  fprintf(piv_rep_file, "%8.6f\n", padding);
+                }
                 fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
               } else {
-                diff = NL_const_size - int(limit);
-                if(i == 0) {
-                  for(int n=0; n<diff; n++) {
-                    padding=0.000000;
-                    // fprintf(piv_rep_file, "Padding Loop\n");
-                    fprintf(piv_rep_file, "%8.6f\n", padding);
-                  }
-                  fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-                } else {
-                  fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-                }
+                fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
               }
-            } 
+            }
           }
         } else {
           // Prints out in the same PIV block element format as TEST
