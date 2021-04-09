@@ -27,7 +27,6 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <cmath>
 #include <iostream>
-#include <stdio.h>
 
 using namespace std;
 
@@ -188,7 +187,7 @@ private:
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch=*stopwatch_fwd;
-  int updatePIV,NL_const_size;
+  int updatePIV;
   size_t Nprec;
   unsigned Natm,Nlist,NLsize;
   double Fvol,Vol0,m_PIVdistance;
@@ -206,8 +205,7 @@ private:
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
   Tensor m_virial;
-  // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
-  bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
+  bool Svol,cross,direct,doneigh,test,CompDer,com;
 public:
   static void registerKeywords( Keywords& keys );
   explicit PIV(const ActionOptions&);
@@ -242,8 +240,6 @@ void PIV::registerKeywords( Keywords& keys )
   keys.addFlag("NLIST",false,"Use a neighbor list for distance calculations.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.addFlag("TIMER",false,"Perform timing analysis on heavy loops.");
-  keys.addFlag("PIVREP",false,"Post process a trajectory from cartesian coordinates to a PIV representation.");
-  keys.add("optional","NL_CONSTANT_SIZE","Fix the number of elements in all blocks to be constant. Blocks which have a total number of possible elements less than the chosen constant size will not be affected.");
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
   keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
@@ -255,7 +251,6 @@ PIV::PIV(const ActionOptions&ao):
   pbc(true),
   serial(false),
   timer(false),
-  NL_const_size(0),
   updatePIV(1),
   Nprec(1000),
   Natm(1),
@@ -281,8 +276,7 @@ PIV::PIV(const ActionOptions&ao):
   doneigh(false),
   test(false),
   CompDer(false),
-  com(false),
-  cart2piv(false)
+  com(false)
 {
   log << "Starting PIV Constructor\n";
 
@@ -322,14 +316,6 @@ PIV::PIV(const ActionOptions&ao):
 
   // Test
   parseFlag("TEST",test);
-
-  // PIV Representation
-  parseFlag("PIVREP",cart2piv);
-
-  // Constant Neighbor List Size
-  if(keywords.exists("NL_CONSTANT_SIZE")) {
-    parse("NL_CONSTANT_SIZE",NL_const_size);
-  }
 
   // UPDATEPIV
   if(keywords.exists("UPDATEPIV")) {
@@ -488,7 +474,7 @@ PIV::PIV(const ActionOptions&ao):
   Nlist=0;
   // Direct adds the A-A ad B-B blocks (N)
   if(direct) {
-    Nlist=Nlist+unsigned(Natm);
+    =Nlist+unsigned(Natm);
   }
   // Cross adds the A-B blocks (N*(N-1)/2)
   if(cross) {
@@ -741,6 +727,7 @@ void PIV::calculate()
   static int prev_stp=-1;
   static int init_stp=1;
   static int diff=0;
+  static int next_iteration=0;
   static double padding=0.0;
   static std:: vector<std:: vector<Vector> > prev_pos(Nlist);
   static std:: vector<std:: vector<double> > cPIV(Nlist);
@@ -1080,57 +1067,6 @@ void PIV::calculate()
     exit();
   }
 
-  if(cart2piv) {
-    // open a file in append mode.
-    FILE *piv_rep_file = NULL;
-    piv_rep_file = fopen("PIV_representation.dat", "a");
-    // fprintf(piv_rep_file, "NList Size: %d\n", NL_const_size);
-    for(unsigned j=0; j<Nlist; j++) {
-      bool dosorting=dosort[j];
-      unsigned limit=0;
-      if(dosorting) {
-        limit = cPIV[j].size();
-      } else {
-        limit = rPIV[j].size();
-      }
-      if(limit != 0) {
-        if(NL_const_size > 0) {
-          int start_val=0;
-          if(limit >= NL_const_size) {
-            start_val = limit - NL_const_size;
-          }
-          for(unsigned i=start_val; i<limit; i+=stride) {
-            if((limit == 1) or (limit > NL_const_size)) {
-              fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-            } else {
-              diff = NL_const_size - int(limit);
-              if(i == 0) {
-                for(int n=0; n<diff; n++) {
-                  padding=0.000000;
-                  // fprintf(piv_rep_file, "Padding Loop\n");
-                  fprintf(piv_rep_file, "%8.6f\n", padding);
-                }
-                fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-              } else {
-                fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-              }
-            }
-          }
-        } else {
-          // Prints out in the same PIV block element format as TEST
-          for(unsigned i=rank; i<limit; i+=stride) {
-            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-          }
-        }
-      } else {
-          padding=0.000000;
-          // fprintf(piv_rep_file, "Limit=0\n");
-          fprintf(piv_rep_file, "%8.6f\n", padding);
-      }
-    }
-    fclose(piv_rep_file);
-  }
-
   if(timer) stopwatch.start("4 Build For Derivatives");
   // non-global variables Nder and Scalevol defined to speedup if structures in cycles
   bool Nder=CompDer;
@@ -1157,6 +1093,29 @@ void PIV::calculate()
         limit = cPIV[j].size();
       } else {
         limit = rPIV[j].size();
+      }
+      if(limit != 0) {
+        for(unsigned i=rank; i<limit; i+=stride) {
+          if(i < 24) {
+            if((limit == 1) or (limit > 24)) {
+              log.printf("%12.6f\n",cPIV[j][i]);
+            } else {
+              diff = 24 - int(limit);
+              if(i == 0) {
+                for(int n=0; n<diff; n+=1) {
+                  padding=0.000000;
+                  log.printf("%12.6f\n",padding);
+                }
+                log.printf("%12.6f\n",cPIV[j][i]);
+              } else {
+                log.printf("%12.6f\n",cPIV[j][i]);
+              }
+            } 
+          }
+        }
+      } else {
+        padding=0.000000;
+        log.printf("%12.6f\n",padding);
       }
       for(unsigned i=rank; i<limit; i+=stride) {
         unsigned i0=0;
