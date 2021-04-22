@@ -188,6 +188,7 @@ private:
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch=*stopwatch_fwd;
+  // Added NL_const_size to fix solute-solvent elements as constant size
   int updatePIV,NL_const_size;
   size_t Nprec;
   unsigned Natm,Nlist,NLsize;
@@ -257,6 +258,7 @@ PIV::PIV(const ActionOptions&ao):
   pbc(true),
   serial(false),
   timer(false),
+
   NL_const_size(0),
   updatePIV(1),
   Nprec(1000),
@@ -713,50 +715,42 @@ PIV::PIV(const ActionOptions&ao):
   }
 
   checkRead();
-  // From the plumed manual on how to build-up a new Colvar
+  // Create components of PIV
   if(cart2piv) {
-    //comp=getPntrToArgument(i)->getName()+"_cntr";
-    //addComponent(comp); componentIsNotPeriodic(comp);
-    int count=0;
+    // cPIV hasn't been created yet so it can't be used in the loop.
+    // The loop is set up generally as N(N-1)/2. 
+    // The if/else statement accounts for there being >1 elements in the solute-solvent blocks, 
+    // and expects that the interaction with solvent is the last block of the each solute atom's interactions
+    // Total count keeps a running tally of the elements in the entire PIV so that there will be an equal number of components.
     unsigned total_count=0;
-    for(int ii = 0; ii < Natm; ii ++) {
-      for(int jj= ii+1; jj < Natm; jj++) {
-          if(jj == Natm - 1) {
-            for(int nn = 0; nn < NL_const_size; nn++) {
-              //Value* comp;
-              //comp=getPntrToValue(total_count)->getName()+"_ELEMENT";
+    for(int j = 0; j < Natm; j ++) {
+      for(int i= j+1; i < Natm; i++) {
+          if(i == Natm - 1) {
+            for(int n = 0; n < NL_const_size; n++) {
               string comp = to_string(total_count) + "_ELEMENT";
               addComponentWithDerivatives(comp); 
               componentIsNotPeriodic(comp);
-              //string name_of_this_component = getPntrToValue(total_count)->getName()+"_PIV_EL";
-              //addComponent(name_of_this_component);  
-              //componentIsNotPeriodic(name_of_this_component);
               total_count += 1;
             }
           } else {
-            //Value* comp;
             string comp = to_string(total_count) + "_ELEMENT";
-            //comp=getPntrToValue(total_count)->getName()+"_ELEMENT";
             addComponentWithDerivatives(comp); 
             componentIsNotPeriodic(comp);
-            //string name_of_this_component = getPntrToValue(total_count)->getName()+"_PIV_EL";
-            //addComponent(name_of_this_component);  
-            //componentIsNotPeriodic(name_of_this_component);
             total_count +=1;
           }
-          count += 1;
       }
     }
     requestAtoms(nlall->getFullAtomList());
     int new_size = ((Natm-1) * (Natm-2) / 2) + ((Natm-1) * (NL_const_size));
     m_deriv.resize(new_size);
+    log.printf("m_deriv size: %10d\n", m_deriv.size());
   } else {
-  addValueWithDerivatives();
-  requestAtoms(nlall->getFullAtomList());
-  setNotPeriodic();
-  // getValue()->setPeridodicity(false);
-  // set size of derivative vector
-  m_deriv.resize(getNumberOfAtoms());
+    addValueWithDerivatives();
+    requestAtoms(nlall->getFullAtomList());
+    setNotPeriodic();
+    // getValue()->setPeridodicity(false);
+    // set size of derivative vector
+    m_deriv.resize(getNumberOfAtoms());
   }
 }
 
@@ -781,8 +775,6 @@ void PIV::calculate()
   // The following are probably needed as static arrays
   static int prev_stp=-1;
   static int init_stp=1;
-  static int diff=0;
-  static double padding=0.0;
   static std:: vector<std:: vector<Vector> > prev_pos(Nlist);
   static std:: vector<std:: vector<double> > cPIV(Nlist);
   static std:: vector<std:: vector<int> > Atom0(Nlist);
@@ -986,24 +978,13 @@ void PIV::calculate()
           std:: vector<unsigned> k(stride,0);
           // Zeros might be many, this slows down a lot due to MPI communication
           // Avoid passing the zeros (i=1) for atom indices
-          if(cart2piv) {
-           for(unsigned i=0; i<Nprec; i++) {
-              // Building long vectors with all atom indexes for occupancies ordered from i=1 to i=Nprec-1
-              // Can this be avoided ???
-              Atom0F.insert(Atom0F.end(),A0[i].begin(),A0[i].end());
-              Atom1F.insert(Atom1F.end(),A1[i].begin(),A1[i].end());
-              A0[i].resize(0);
-              A1[i].resize(0);
-            }
-          } else {
-            for(unsigned i=1; i<Nprec; i++) {
-              // Building long vectors with all atom indexes for occupancies ordered from i=1 to i=Nprec-1
-              // Can this be avoided ???
-              Atom0F.insert(Atom0F.end(),A0[i].begin(),A0[i].end());
-              Atom1F.insert(Atom1F.end(),A1[i].begin(),A1[i].end());
-              A0[i].resize(0);
-              A1[i].resize(0);
-            }
+          for(unsigned i=1; i<Nprec; i++) {
+            // Building long vectors with all atom indexes for occupancies ordered from i=1 to i=Nprec-1
+            // Can this be avoided ???
+            Atom0F.insert(Atom0F.end(),A0[i].begin(),A0[i].end());
+            Atom1F.insert(Atom1F.end(),A1[i].begin(),A1[i].end());
+            A0[i].resize(0);
+            A1[i].resize(0);
           }
           // Resize partial arrays to fill up for the next PIV block
           A0[0].resize(0);
@@ -1048,32 +1029,16 @@ void PIV::calculate()
           // Loop on Ordering Vector size excluding zeros (i=1)
           if(timer) stopwatch.stop("2 Sort cPIV");
           if(timer) stopwatch.start("3 Reconstruct cPIV");
-          if(cart2piv) {
-            for(unsigned i=0; i<Nprec; i++) {
-              // Loop on the ranks
-              for(unsigned l=0; l<stride; l++) {
-                // Loop on the number of head-to-tail pieces
-                for(unsigned m=0; m<OrdVecAll[i+l*Nprec]; m++) {
-                  // cPIV is the current PIV at time t
-                  cPIV[j].push_back(double(i)/double(Nprec-1));
-                  Atom0[j].push_back(Atom0FAll[k[l]+Vpos[l]]);
-                  Atom1[j].push_back(Atom1FAll[k[l]+Vpos[l]]);
-                  k[l]+=1;
-                }
-              }
-            }
-          } else {
-            for(unsigned i=1; i<Nprec; i++) {
-              // Loop on the ranks
-              for(unsigned l=0; l<stride; l++) {
-                // Loop on the number of head-to-tail pieces
-                for(unsigned m=0; m<OrdVecAll[i+l*Nprec]; m++) {
-                  // cPIV is the current PIV at time t
-                  cPIV[j].push_back(double(i)/double(Nprec-1));
-                  Atom0[j].push_back(Atom0FAll[k[l]+Vpos[l]]);
-                  Atom1[j].push_back(Atom1FAll[k[l]+Vpos[l]]);
-                  k[l]+=1;
-                }
+          for(unsigned i=1; i<Nprec; i++) {
+            // Loop on the ranks
+            for(unsigned l=0; l<stride; l++) {
+              // Loop on the number of head-to-tail pieces
+              for(unsigned m=0; m<OrdVecAll[i+l*Nprec]; m++) {
+                // cPIV is the current PIV at time t
+                cPIV[j].push_back(double(i)/double(Nprec-1));
+                Atom0[j].push_back(Atom0FAll[k[l]+Vpos[l]]);
+                Atom1[j].push_back(Atom1FAll[k[l]+Vpos[l]]);
+                k[l]+=1;
               }
             }
           }
@@ -1147,55 +1112,38 @@ void PIV::calculate()
     log.printf("This was a test, now exit \n");
     exit();
   }
-
+  // Write out file of PIV representation for each frame of the trajectory
   if(cart2piv) {
     // open a file in append mode.
     FILE *piv_rep_file = NULL;
     piv_rep_file = fopen("PIV_representation.dat", "a");
-    // fprintf(piv_rep_file, "NList Size: %d\n", NL_const_size);
     for(unsigned j=0; j<Nlist; j++) {
       bool dosorting=dosort[j];
       unsigned limit=0;
-      if(dosorting) {
-        limit = cPIV[j].size();
-      } else {
-        limit = rPIV[j].size();
-      }
-      if(limit != 0) {
-        if(NL_const_size > 0) {
-          int start_val=0;
-          if(limit >= NL_const_size) {
-            start_val = limit - NL_const_size;
-          }
-          for(unsigned i=start_val; i<limit; i+=stride) {
-            if((limit == 1) or (limit > NL_const_size)) {
-              fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-            } else {
-              diff = NL_const_size - int(limit);
-              if(i == 0) {
-                for(int n=0; n<diff; n++) {
-                  padding=0.000000;
-                  // fprintf(piv_rep_file, "Padding Loop\n");
-                  fprintf(piv_rep_file, "%8.6f\n", padding);
-                }
-                fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-              } else {
-                fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-              }
-            }
-          }
-        } else {
-          // Prints out in the same PIV block element format as TEST
-          for(unsigned i=rank; i<limit; i+=stride) {
-            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
-          }
+      // Set limit to size of PIV block. Solute-solute blocks will be 1 (for tetracosane) 
+      // and much larger for solute-solvent blocks (likely hundreds)
+      limit = cPIV[j].size();
+      // Allow for non-constant block sizes if desired
+      if(NL_const_size > 0) {
+        // Solute-solvent blocks have more neighbors than necessary so that padding is not necessary.
+        // The solute-solvent blocks are already sorted so the last elements of the block (size NL_const_size) are the desired interactions to include
+        // i.e. the closest solute-solvent interactions. This is irrelevant for the solute-solute interactions. 
+        int start_val=0;
+        // This sets the start value to be NL_const_size away from the end of the sorted block to choose the desired interactions.
+        if(limit > NL_const_size) {
+          start_val = limit - NL_const_size;
+        }
+        for(unsigned i=start_val; i<limit; i++) {
+          fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
         }
       } else {
-          padding=0.000000;
-          // fprintf(piv_rep_file, "Limit=0\n");
-          fprintf(piv_rep_file, "%8.6f\n", padding);
+        // Prints out in the same PIV block element format as TEST
+        for(unsigned i=0; i<limit; i++) {
+          fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+        }
       }
     }
+    fprintf(piv_rep_file, "END OF FRAME\n");
     fclose(piv_rep_file);
   }
 
@@ -1203,6 +1151,7 @@ void PIV::calculate()
   // non-global variables Nder and Scalevol defined to speedup if structures in cycles
   bool Nder=CompDer;
   bool Scalevol=Svol;
+  // Build derivatives for PIVREP differently because indexing is slightly different (only taking some of the solute-solvent interactions)
   if(cart2piv) {
     for(unsigned j=0; j<m_deriv.size(); j++) {
       for(unsigned k=0; k<3; k++) {m_deriv[j][k]=0.;}
@@ -1213,10 +1162,11 @@ void PIV::calculate()
       }
     }
     for(unsigned j=0; j<Nlist; j++) {
+      // Same loop as used/described above
       unsigned limit=0;
       limit = cPIV[j].size();
       int start_val=0;
-      if(limit >= NL_const_size) {
+      if(limit > NL_const_size) {
         start_val = limit - NL_const_size;
       }
       for(unsigned i=start_val; i<limit; i++) {
@@ -1229,8 +1179,8 @@ void PIV::calculate()
         Pos1=getPosition(i1);
         distance=pbcDistance(Pos0,Pos1);
         dfunc=0.;
-        // this is needed for dfunc and dervatives
         double dm=distance.modulo();
+        // TODO: Is this problematic? sfs[j] would seem to take all neighbors for j but only a subset is used for some j values
         double tPIV = sfs[j].calculate(dm*Fvol, dfunc);
         double tmp=0.;
         tmp = 2.*scaling[j]*tPIV*Fvol*Fvol*dfunc;
@@ -1240,6 +1190,7 @@ void PIV::calculate()
         m_virial    -= tmp*Tensor(distance,distance);
       }
     }
+    log.printf("m_deriv size: %10d\n", m_deriv.size());
     if (!serial && comm.initialized()) {
       comm.Barrier();
       comm.Sum(&cPIV[0][0],m_deriv.size());
@@ -1394,26 +1345,21 @@ void PIV::calculate()
     log.printf("Timings for action %s with label %s \n", getName().c_str(), getLabel().c_str() );
     log<<stopwatch;
   }
+  log.printf("m_deriv size: %10d\n", m_deriv.size());
   if(cart2piv) {
-    //getPntrToComponent(getPntrToArgument(i)->getName()+"_work")->set(val[i]);
-    int count=0;
     unsigned total_count=0;
-    for (int j = 0; j < Nlist; j ++) {
+    for (int j = 0; j < Nlist; j++) {
       unsigned limit=0;
       limit = cPIV[j].size();
       int start_val=0;
-      if(limit >= NL_const_size) {
+      if(limit > NL_const_size) {
         start_val = limit - NL_const_size;
       }
-      for (int i = start_val; i < limit; i ++) {
-        //Value* comp_pnt
+      for (int i = start_val; i < limit; i++) {
         string comp = to_string(total_count) + "_ELEMENT";
-        //comp_pnt=getPntrToComponent(getPntrToArgument(total_count)->getName()+"_ELEMENT")->set(cPIV[count][nn]);
-        //string name_of_this_component = getPntrToValue(total_count)->getName()+"_PIV_EL";
         Value* valueNew=getPntrToComponent(comp);
         valueNew -> set(cPIV[j][i]);
         setAtomsDerivatives(valueNew, total_count, m_deriv[total_count]);
-        //valueNew -> setDerivative(total_count, m_deriv[total_count]);
         total_count += 1;
       }
     }
