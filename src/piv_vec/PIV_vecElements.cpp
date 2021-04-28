@@ -592,14 +592,23 @@ PIV::PIV(const ActionOptions&ao):
   dosort.resize(Nlist);
   std:: vector<int> ynsort(Nlist);
   parseVector("SORT",ynsort);
-  for (unsigned i=0; i<Nlist; i++) {
-    if(ynsort[i]==0||CompDer) {
-      dosort[i]=false;
-    } else {
-      dosort[i]=true;
+  if(cart2piv) {
+    for (unsigned i=0; i<Nlist; i++) {
+      if(ynsort[i]==0) {
+        dosort[i]=false;
+      } else {
+        dosort[i]=true;
+      }
+    }
+  } else {
+    for (unsigned i=0; i<Nlist; i++) {
+      if(ynsort[i]==0||CompDer) {
+        dosort[i]=false;
+      } else {
+        dosort[i]=true;
+      }
     }
   }
-
   //build box vectors and correct for pbc
   log << "Building the box from PDB data ... \n";
   Tensor Box=mypdb.getBoxVec();
@@ -1190,10 +1199,16 @@ void PIV::calculate()
         m_virial    -= tmp*Tensor(distance,distance);
       }
     }
-    log.printf("m_deriv size: %10d\n", m_deriv.size());
+    log.printf("cPIV size: %10d\n", cPIV.size());
     if (!serial && comm.initialized()) {
+      int count = 0
+      for(unsigned j=0; j<Nlist; j++) {
+          for(unsigned i=0; i<cPIV[j].size(); i++) {
+              count += 1
+          }
+      }
       comm.Barrier();
-      comm.Sum(&cPIV[0][0],m_deriv.size());
+      comm.Sum(&cPIV[0][0],count);
       if(!m_deriv.empty()) comm.Sum(&m_deriv[0][0],3*m_deriv.size());
       comm.Sum(&m_virial[0][0],9);
     }
