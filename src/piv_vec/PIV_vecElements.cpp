@@ -1181,19 +1181,29 @@ void PIV::calculate()
       for(unsigned i=start_val; i<limit; i++) {
         unsigned i0=0;
         unsigned i1=0;
+        // i0 and i1 take scalar values, so Atom0[j][i]/Atom1[j][i] must not be xyz coordinates. Atom0 and Atom1 seem
+        // to be lists that index atoms within the neighbor list
         i0=Atom0[j][i];
         i1=Atom1[j][i];
+        // Pos0 and Pos1 seem to be 1x3 vectors that hold the xyz coordinates of the indexed atoms
         Vector Pos0,Pos1;
         Pos0=getPosition(i0);
         Pos1=getPosition(i1);
+        // distance is also a 1x3 vector of the xyz distances between the two atoms after consideration of the pbc
         distance=pbcDistance(Pos0,Pos1);
         dfunc=0.;
+        // dm seems to be scalar value that is the magnitude of the distance between the atoms
         double dm=distance.modulo();
-        // TODO: Is this problematic? sfs[j] would seem to take all neighbors for j but only a subset is used for some j values
+        // sfs[j] is the parameters for the switching function, which can be chosen to be different for different blocks
+        // In this case, all blocks use the same switching function so all sfs[j] are the same function.
+        // Used with .calculate(dm*Fvol, dfunc), the PIV element value is returned and the derivative stored in dfunc
         double tPIV = sfs[j].calculate(dm*Fvol, dfunc);
         double tmp=0.;
+        // In our case, Fvol is 1 and so is scaling[j], so tmp is really 2*s(r)*derivative_of_s(r)
         tmp = 2.*scaling[j]*tPIV*Fvol*Fvol*dfunc;
         Vector tmpder = tmp*distance;
+        // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
+        // that distance is calculated as Pos1 - Pos0
         m_deriv[i0] -= tmpder;
         m_deriv[i1] += tmpder;
         m_virial    -= tmp*Tensor(distance,distance);
@@ -1207,6 +1217,7 @@ void PIV::calculate()
               count += 1
           }
       }
+      log.printf("cPIV total count: %10d\n", count);
       comm.Barrier();
       comm.Sum(&cPIV[0][0],count);
       if(!m_deriv.empty()) comm.Sum(&m_deriv[0][0],3*m_deriv.size());
