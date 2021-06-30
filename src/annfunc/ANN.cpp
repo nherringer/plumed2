@@ -28,6 +28,7 @@ SOFTWARE.
 #include <string>
 #include <cmath>
 #include <iostream>
+#include <fstream> //-- SD
 // #include <stdio.h>
 
 using namespace std;
@@ -35,6 +36,7 @@ using namespace std;
 // #define DEBUG
 // #define DEBUG_2
 // #define DEBUG_3
+#define DEBUG_PIVFILE
 
 namespace PLMD {
 namespace function {
@@ -98,6 +100,8 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
+  vector<double> piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
+  std::string piv_deriv_file; // -- SD
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -120,6 +124,7 @@ void ANN::registerKeywords( Keywords& keys ) {
            "WEIGHTS1 represents flattened weight array connecting layer 1 and layer 2, ...");
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
+  keys.add("optional", "PIV_DERIV_FILE", "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
   // since v2.2 plumed requires all components be registered
   keys.addOutputComponent("node", "default", "components of ANN outputs");
 }
@@ -161,6 +166,40 @@ ANN::ANN(const ActionOptions&ao):
     biases.push_back(temp_single_bias);
     log.printf("size of temp_single_bias = %lu\n", temp_single_bias.size());
     log.printf("size of biases = %lu\n", biases.size());
+  }
+
+  // initialize piv_deriv to 1 (default --- x,y,z as input. otherwise read from file). -- SD
+  // Same size as number of nodes in input layer -- num_nodes[0]. 
+  piv_deriv.resize(num_nodes[0]);
+  for (unsigned j = 0; j < piv_deriv.size(); j++){
+    piv_deriv[j] = 1.0;
+  }
+
+  // read PIV derivative file -- SD
+  if(keywords.exists("PIV_DERIV_FILE")){
+    parse("PIV_DERIV_FILE", piv_deriv_file);
+    ifstream fp(piv_deriv_file);
+
+    if (fp) {
+      // read derivatives to vector
+      log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
+      double piv_deriv_element = 0.0;
+      while (fp >> piv_deriv_element){
+        piv_deriv.push_back(piv_deriv_element);
+      }
+      fp.close();
+    
+      #ifdef DEBUG_PIVFILE
+        cout << "PIV Derivative file: ";
+        for(int piv_size = 0; piv_size < piv_deriv.size(); piv_size++){
+          cout << piv_deriv[piv_size] << " ";
+        } 
+        cout << endl;
+      #endif
+
+    } else {
+      error("Error in reading PIV derivatives file.");
+    }
   }
 
   if(getNumberOfArguments() != num_nodes[0]) {
@@ -277,10 +316,10 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   // first calculate derivatives for bottleneck layer
   for (int ii = 0; ii < num_nodes[num_nodes.size() - 1]; ii ++ ) {
     if (ii == index_of_output_component) {
-      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1;
+      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1 * piv_deriv[ii]; // -- SD
     }
     else {
-      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0;
+      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0 * piv_deriv[ii]; // -- SD
     }
   }
   // the use back propagation to calculate derivatives for previous layers
