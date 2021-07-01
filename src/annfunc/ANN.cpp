@@ -387,6 +387,17 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                  * coeff[jj][kk][mm] \
                                                  * 1;
           }
+          else if (activations[jj] == string("ReLU")) {
+              // printf("ReLU\n") // Added ReLU -- SD
+            if (output_of_each_layer[jj + 1][kk] <= 0) {
+              derivatives_of_each_layer[jj][mm] += 0;
+            }
+            else {
+              derivatives_of_each_layer[jj + 1][kk] += derivatives_of_each_layer[jj + 1][kk] \                                
+                                                    * coeff[jj][kk][mm] \
+                                                    * 1;
+            }
+          }
           else {
             printf("layer type not found!\n\n");
             return;
