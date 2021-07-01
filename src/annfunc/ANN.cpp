@@ -184,8 +184,16 @@ ANN::ANN(const ActionOptions&ao):
       // read derivatives to vector
       log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
       double piv_deriv_element = 0.0;
+      int countPIVelements = 0;
       while (fp >> piv_deriv_element){
-        piv_deriv.push_back(piv_deriv_element);
+        piv_deriv[countPIVelements] = piv_deriv_element;
+        countPIVelements += 1;
+        if (countPIVelements > num_nodes[0]){
+            error("Size of piv derivatives file > number of nodes in the input layer.");
+        }
+      }
+      if (countPIVelements < num_nodes[0]){
+        error("Size of piv derivatives file < number of nodes in the input layer");
       }
       fp.close();
     
@@ -316,10 +324,10 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   // first calculate derivatives for bottleneck layer
   for (int ii = 0; ii < num_nodes[num_nodes.size() - 1]; ii ++ ) {
     if (ii == index_of_output_component) {
-      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1 * piv_deriv[ii]; // -- SD
+      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1; 
     }
     else {
-      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0 * piv_deriv[ii]; // -- SD
+      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0;
     }
   }
   // the use back propagation to calculate derivatives for previous layers
@@ -418,7 +426,8 @@ void ANN::calculate() {
     Value* value_new=getPntrToComponent(name_of_this_component);
     value_new -> set(output_of_each_layer[num_layers - 1][ii]);
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
-      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]);  // TODO: setDerivative or addDerivative?
+      // Update: piv_deriv[jj] included to consider PIVs as input layer nodes. -- SD
+      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj] * piv_deriv[jj] );  // TODO: setDerivative or addDerivative?
     }
 #ifdef DEBUG_3
     printf("derivatives = ");
