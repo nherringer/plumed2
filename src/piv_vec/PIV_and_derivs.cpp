@@ -206,8 +206,12 @@ private:
   std::vector<NeighborList *> nl;
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
-  // Added new 3D array for derivatives --NH
   std::vector<std:: vector<Vector> > ann_deriv;
+  std::vector<std:: vector<Vector> > dr_dxyz_array;
+  std::vector<double> ds_array;
+  std::vector<double> ANN_sum_array;
+  std::vector<int> PIV_Pair0;
+  std::vector<int> PIV_Pair1;
   Tensor m_virial;
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
@@ -281,8 +285,12 @@ PIV::PIV(const ActionOptions&ao):
   nl(std:: vector<NeighborList *>(Nlist)),
   nlcom(std:: vector<NeighborList *>(NLsize)),
   m_deriv(std:: vector<Vector>(1)),
-  // Construct dimensions for 3D derivatives array
+  dr_dxyz_array(std:: vector<std:: vector<Vector> >(1)),
+  ds_array(std:: vector<double>(1)),
+  ANN_sum_array(std:: vector<double>(1)),
   ann_deriv(std:: vector<std:: vector<Vector> >(1)),
+  PIV_Pair0(std:: vector<int>(1)),
+  PIV_Pair1(std:: vector<int>(1)),
   Svol(false),
   cross(true),
   direct(true),
@@ -754,11 +762,6 @@ PIV::PIV(const ActionOptions&ao):
       }
     }
     requestAtoms(nlall->getFullAtomList());
-    // Size 3D derivatives array to have dimensions of size:
-    // 1. All atoms in system (Taken from reference PDB). This is 21086 in our current case.
-    // 2. Elements in PIV array. This is 852 in our current case.
-    // 3. XYZ coordinates. This will always be 3 and is defined by using the class Vector in the constructor.
-    // Total count is incremented with the component creation above to be general for any size PIV. --NH
     ann_deriv.resize(getNumberOfAtoms());
     for (int i = 0; i < getNumberOfAtoms(); i++) {
       ann_deriv[i].resize(total_count);
@@ -1172,7 +1175,6 @@ void PIV::calculate()
   bool Scalevol=Svol;
   // Build derivatives for PIVREP differently because indexing is slightly different (only taking some of the solute-solvent interactions)
   if(cart2piv) {
-    // Set all values in the 3D derivative array to 0 --NH
     for(unsigned j=0; j<ann_deriv.size(); j++) {
       for(unsigned i=0; i<ann_deriv[j].size(); i++) {
         for(unsigned k=0; k<3; k++) {ann_deriv[j][i][k]=0.;}
@@ -1183,12 +1185,28 @@ void PIV::calculate()
         m_virial[j][k]=0.;
       }
     }
-    // The atom#.dat files were used for calculation checking and work as they should. All pertaining lines can be commented out. --NH
-    FILE *atom0_file = NULL;
-    atom0_file = fopen("Atom0.dat", "a");
-    FILE *atom1_file = NULL;
-    atom1_file = fopen("Atom1.dat", "a");
-    // This variable will be used to increment the second dimension of the 3D derivatives array --NH
+    //FILE *atom0_file = NULL;
+    //atom0_file = fopen("Atom0.dat", "a");
+    //FILE *atom1_file = NULL;
+    //atom1_file = fopen("Atom1.dat", "a");
+    ds_array.resize(ann_deriv[0].size());
+    ANN_sum_array.resize(ds_array.size());
+    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+      ANN_sum_array[j] = 0.;
+    }
+    dr_dxyz_array.resize(ann_deriv.size());
+    PIV_Pair0.resize(ds_array.size());
+    PIV_Pair1.resize(ds_array.size());
+    for(unsigned j=0; j<dr_dxyz_array.size(); j++) {
+      dr_dxyz_array[j].resize(ds_array.size());
+    }
+    for(unsigned j=0; j<dr_dxyz_array.size(); j++) {
+      for(unsigned i=0; i<dr_dxyz_array[j].size(); i++) {
+        for(unsigned k=0; k<3; k++) {
+          dr_dxyz_array[j][i][k] = 0.;
+        }
+      }
+    }
     unsigned PIV_element=0;
     for(unsigned j=0; j<Nlist; j++) {
       // Same loop as used/described above
@@ -1204,7 +1222,9 @@ void PIV::calculate()
         // i0 and i1 take scalar values, so Atom0[j][i]/Atom1[j][i] must not be xyz coordinates. Atom0 and Atom1 seem
         // to be lists that index atoms within the neighbor list
         i0=Atom0[j][i];
+        PIV_Pair0[PIV_element] = i0;
         i1=Atom1[j][i];
+        PIV_Pair1[PIV_element] = i1;
         // Pos0 and Pos1 seem to be 1x3 vectors that hold the xyz coordinates of the indexed atoms
         Vector Pos0,Pos1;
         Pos0=getPosition(i0);
@@ -1219,33 +1239,57 @@ void PIV::calculate()
         // Used with .calculate(dm*Fvol, dfunc), the PIV element value is returned and the derivative stored in dfunc
         double tPIV = sfs[j].calculate(dm*Fvol, dfunc);
         //double tmp=0.;
-        // Created a new variable to reflect the changes in the derivative calculation --NH
-        double ds=0.;
+        double ds_element=0.;
         // In our case, Fvol is 1 and so is scaling[j], so tmp is really 2*s(r)*derivative_of_s(r)
         //tmp = 2.*scaling[j]*tPIV*Fvol*Fvol*dfunc;
-        ds = scaling[j]*Fvol*Fvol*dfunc;
-        Vector tmpder = ds*distance;
+        ds_element = scaling[j]*Fvol*Fvol*dfunc*dm;
+        ds_array[PIV_element] = ds_element;
+        Vector dr_dcoord = distance/dm;
+        //Vector tmpder = ds*distance;
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
-
-        // All initial values are zeros and only atom IDs (i0 and i1) corresponding to elements of the PIV array are updated. 
-        // The array is reset to zero before the next frame is calculated. --NH
-        ann_deriv[i0][PIV_element] -= tmpder;
-        ann_deriv[i1][PIV_element] += tmpder;
-        // By substituting `ds` for `tmp` here I have removed a factor of 2. Is this correct to do? --NH
-        m_virial    -= ds*Tensor(distance,distance);
-        // Increment counter for second dimension of derivatives array. --NH
+        ann_deriv[i0][PIV_element] -= ds_element*dr_dcoord;
+        ann_deriv[i1][PIV_element] += ds_element*dr_dcoord;
+        dr_dxyz_array[i0][PIV_element] -= dr_dcoord;
+        dr_dxyz_array[i1][PIV_element] += dr_dcoord;
+        m_virial    -= ds_element*Tensor(distance,distance);
         PIV_element += 1;
-        // I was checking that the atoms involved in the PIV distances were being indexed correctly and they are. --NH
-        fprintf(atom0_file, "%8u\n", i0);
-        fprintf(atom1_file, "%8u\n", i1);
+        //fprintf(atom0_file, "%8u\n", i0);
+        //fprintf(atom1_file, "%8u\n", i1);
       }
     }
-    // Separate frames in output file and close file.
-    fprintf(atom0_file, "END OF FRAME\n");
-    fclose(atom0_file);
-    fprintf(atom1_file, "END OF FRAME\n");
-    fclose(atom1_file);
+    double dri_drj = 0.;
+    FILE *dri_drj_file = NULL;
+    dri_drj_file = fopen("dri_drj_values.dat", "a");
+    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+      unsigned i0_j = PIV_Pair0[j];
+      unsigned i1_j = PIV_Pair1[j];
+      for(unsigned i=0; i<ANN_sum_array.size(); i++) {
+        double dri_drjalpha=0.;
+        double dri_drjbeta=0.;
+        for(unsigned k=0; k<3; k++) {
+          dri_drjalpha +=(double) dr_dxyz_array[i0_j][i][k] / (double) dr_dxyz_array[i0_j][j][k];
+          dri_drjbeta +=(double) dr_dxyz_array[i1_j][i][k] / (double) dr_dxyz_array[i1_j][j][k];
+        }  
+        dri_drj = dri_drjalpha + dri_drjbeta;
+        fprintf(dri_drj_file, "%8.6f\n", dri_drj);
+        ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
+        dri_drj=0.;
+      }
+    }
+    fprintf(dri_drj_file, "END OF FRAME\n");
+    fclose(dri_drj_file);
+    FILE *ANN_sum_file = NULL;
+    ANN_sum_file = fopen("ANN_deriv_sum.dat", "a");
+    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+      fprintf(ANN_sum_file, "%8.6f\n", ANN_sum_array[j]);
+    }
+    fprintf(ANN_sum_file, "END OF FRAME\n");
+    fclose(ANN_sum_file);
+    //fprintf(atom0_file, "END OF FRAME\n");
+    //fclose(atom0_file);
+    //fprintf(atom1_file, "END OF FRAME\n");
+    //fclose(atom1_file);
     log.printf("cPIV size: %10d\n", cPIV.size());
     if (!serial && comm.initialized()) {
       int count = 0;
@@ -1257,7 +1301,6 @@ void PIV::calculate()
       log.printf("cPIV total count: %10d\n", count);
       comm.Barrier();
       comm.Sum(&cPIV[0][0],count);
-      // Provide the size of the flattend 3D derivatives array to comm.Sum
       if(!ann_deriv.empty()) comm.Sum(&ann_deriv[0][0][0],3*ann_deriv.size()*ann_deriv[0].size());
       comm.Sum(&m_virial[0][0],9);
     }
@@ -1411,10 +1454,8 @@ void PIV::calculate()
   }
   //log.printf("m_deriv size: %10d\n", m_deriv.size());
   if(cart2piv) {
-    // Create output file of flattend 3D array to check derivatives
-    FILE *ann_deriv_file = NULL;
-    // Change `w+` to `a` to check that frames have consistent sizing, but beware that each frame is ~0.5GB so the file will get very large, very quickly.
-    ann_deriv_file = fopen("PIV2ANN_Derivatives.dat", "w+");
+    //FILE *ann_deriv_file = NULL;
+    //ann_deriv_file = fopen("PIV2ANN_Derivatives.dat", "a");
     unsigned total_count=0;
     for (int j = 0; j < Nlist; j++) {
       unsigned limit=0;
@@ -1427,22 +1468,15 @@ void PIV::calculate()
         string comp = to_string(total_count) + "_ELEMENT";
         Value* valueNew=getPntrToComponent(comp);
         valueNew -> set(cPIV[j][i]);
+        for(unsigned k=0; k<ann_deriv.size(); k++) {
+          setAtomsDerivatives(valueNew, k, ann_deriv[k][total_count]);
+        }
         //setAtomsDerivatives(valueNew, total_count, m_deriv[total_count]);
         total_count += 1;
       }
     }
-    // Loop through every value in the 3D array and write it to an output file. In our current case:
-    // 21086*852*3 = 53895816 values (the array is of the appropriate dimensions and nonzero values are where they should be) --NH
-    for (int j=0; j < ann_deriv.size(); j++) {
-      for(int i=0; i < ann_deriv[j].size(); i++) {
-        for(int k=0; k < 3; k++) {
-          fprintf(ann_deriv_file, "%8.6f\n", ann_deriv[j][i][k]);
-        }
-      }
-    }
-    // This makes it easy to check that every frame has the correct number of values. --NH
-    fprintf(ann_deriv_file, "END OF FRAME\n");
-    fclose(ann_deriv_file);
+    //fprintf(ann_deriv_file, "END OF FRAME\n");
+    //fclose(ann_deriv_file);
     setBoxDerivatives  (m_virial);
     //FILE *atom0_file = NULL;
     //atom0_file = fopen("Atom0.dat", "a");
