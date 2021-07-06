@@ -206,10 +206,15 @@ private:
   std::vector<NeighborList *> nl;
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
+  // ann_deriv is the 3D array (dv(r)/dxyz) passed to the plumed core --NH
   std::vector<std:: vector<Vector> > ann_deriv;
+  // dr_dxyz_array is the 3D array (dr/dxyz) used to build ann_deriv and ANN_sum_array --NH
   std::vector<std:: vector<Vector> > dr_dxyz_array;
+  // ds_array is the 1D array (dv(r)/dr) of the switching function --NH
   std::vector<double> ds_array;
+  // ANN_sum_array is the 1D array (sum dv_d/dv_n) written to an output file for use by the ANN code --NH
   std::vector<double> ANN_sum_array;
+  // The PIV_Pair vectors record the atom IDs for the PIV elements that are passed to the VAE --NH
   std::vector<int> PIV_Pair0;
   std::vector<int> PIV_Pair1;
   Tensor m_virial;
@@ -1185,10 +1190,7 @@ void PIV::calculate()
         m_virial[j][k]=0.;
       }
     }
-    //FILE *atom0_file = NULL;
-    //atom0_file = fopen("Atom0.dat", "a");
-    //FILE *atom1_file = NULL;
-    //atom1_file = fopen("Atom1.dat", "a");
+    // resize vectors to the appropriate sizes and set starting values to zero --NH
     ds_array.resize(ann_deriv[0].size());
     ANN_sum_array.resize(ds_array.size());
     for(unsigned j=0; j<ANN_sum_array.size(); j++) {
@@ -1222,6 +1224,7 @@ void PIV::calculate()
         // i0 and i1 take scalar values, so Atom0[j][i]/Atom1[j][i] must not be xyz coordinates. Atom0 and Atom1 seem
         // to be lists that index atoms within the neighbor list
         i0=Atom0[j][i];
+        // Record the atom IDs for the PIV elements of interest --NH
         PIV_Pair0[PIV_element] = i0;
         i1=Atom1[j][i];
         PIV_Pair1[PIV_element] = i1;
@@ -1242,25 +1245,34 @@ void PIV::calculate()
         double ds_element=0.;
         // In our case, Fvol is 1 and so is scaling[j], so tmp is really 2*s(r)*derivative_of_s(r)
         //tmp = 2.*scaling[j]*tPIV*Fvol*Fvol*dfunc;
+        // Create the ds_array one element at a time --NH
         ds_element = scaling[j]*Fvol*Fvol*dfunc*dm;
         ds_array[PIV_element] = ds_element;
+        // Create 1x3 vector of (dr/dx,dr/dy,dr/dz) --NH
         Vector dr_dcoord = distance/dm;
         //Vector tmpder = ds*distance;
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
+        // Calculate ann_deriv values for the current PIV element in the loop --NH
         ann_deriv[i0][PIV_element] -= ds_element*dr_dcoord;
         ann_deriv[i1][PIV_element] += ds_element*dr_dcoord;
+        // Record dr/dxyz values for ANN_sum_array calculation later in code --NH
         dr_dxyz_array[i0][PIV_element] -= dr_dcoord;
         dr_dxyz_array[i1][PIV_element] += dr_dcoord;
+        // This m_virial is likely not correct but has been included in case it is necessary to test the code --NH
         m_virial    -= ds_element*Tensor(distance,distance);
         PIV_element += 1;
         //fprintf(atom0_file, "%8u\n", i0);
         //fprintf(atom1_file, "%8u\n", i1);
       }
     }
-    double dri_drj = 0.;
-    FILE *dri_drj_file = NULL;
-    dri_drj_file = fopen("dri_drj_values.dat", "a");
+    // The file "dri_drj_values.dat" was used for debugging and has since been commented out --NH
+    
+    //double dri_drj = 0.;
+    //FILE *dri_drj_file = NULL;
+    //dri_drj_file = fopen("dri_drj_values.dat", "a");
+
+    //This loops over the two PIV element sets (dv_d and dv_n) --NH
     for(unsigned j=0; j<ANN_sum_array.size(); j++) {
       unsigned i0_j = PIV_Pair0[j];
       unsigned i1_j = PIV_Pair1[j];
@@ -1268,17 +1280,21 @@ void PIV::calculate()
         double dri_drjalpha=0.;
         double dri_drjbeta=0.;
         for(unsigned k=0; k<3; k++) {
+          // This is where the vectors are summed into a scalar --NH
+          // We will likely need to address the possibility of a zero term in the denominator of either term --NH
           dri_drjalpha +=(double) dr_dxyz_array[i0_j][i][k] / (double) dr_dxyz_array[i0_j][j][k];
           dri_drjbeta +=(double) dr_dxyz_array[i1_j][i][k] / (double) dr_dxyz_array[i1_j][j][k];
         }  
         dri_drj = dri_drjalpha + dri_drjbeta;
-        fprintf(dri_drj_file, "%8.6f\n", dri_drj);
+        //fprintf(dri_drj_file, "%8.6f\n", dri_drj);
+        // Calculate ANN_sum_array from sub-arrays --NH
         ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
         dri_drj=0.;
       }
     }
-    fprintf(dri_drj_file, "END OF FRAME\n");
-    fclose(dri_drj_file);
+    //fprintf(dri_drj_file, "END OF FRAME\n");
+    //fclose(dri_drj_file);
+    // Output the values of ANN_sum_array to a file to be read-in by the ANN module --NH
     FILE *ANN_sum_file = NULL;
     ANN_sum_file = fopen("ANN_deriv_sum.dat", "a");
     for(unsigned j=0; j<ANN_sum_array.size(); j++) {
@@ -1468,6 +1484,8 @@ void PIV::calculate()
         string comp = to_string(total_count) + "_ELEMENT";
         Value* valueNew=getPntrToComponent(comp);
         valueNew -> set(cPIV[j][i]);
+        // Pass the 3D array to the plumed core --NH
+        // A 2D array is passed for each PIV element (component) --NH
         for(unsigned k=0; k<ann_deriv.size(); k++) {
           setAtomsDerivatives(valueNew, k, ann_deriv[k][total_count]);
         }
