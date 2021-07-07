@@ -124,7 +124,8 @@ void ANN::registerKeywords( Keywords& keys ) {
            "WEIGHTS1 represents flattened weight array connecting layer 1 and layer 2, ...");
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
-  keys.add("optional", "PIV_DERIV_FILE", "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
+  keys.add("optional", "PIV_DERIV_FILE", 
+           "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
   // since v2.2 plumed requires all components be registered
   keys.addOutputComponent("node", "default", "components of ANN outputs");
 }
@@ -175,13 +176,12 @@ ANN::ANN(const ActionOptions&ao):
     piv_deriv[j] = 1.0;
   }
 
-  // read PIV derivative file -- SD
-  if(keywords.exists("PIV_DERIV_FILE")){
-    parse("PIV_DERIV_FILE", piv_deriv_file);
+  parse("PIV_DERIV_FILE", piv_deriv_file);
+  if(piv_deriv_file.length()!=0){
     ifstream fp(piv_deriv_file);
 
     if (fp) {
-      // read derivatives to vector
+      //read derivatives to vector
       log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
       double piv_deriv_element = 0.0;
       int countPIVelements = 0;
@@ -196,7 +196,7 @@ ANN::ANN(const ActionOptions&ao):
         error("Size of piv derivatives file < number of nodes in the input layer");
       }
       fp.close();
-    
+      
       #ifdef DEBUG_PIVFILE
         cout << "PIV Derivative file: ";
         for(int piv_size = 0; piv_size < piv_deriv.size(); piv_size++){
@@ -437,8 +437,12 @@ void ANN::calculate() {
     Value* value_new=getPntrToComponent(name_of_this_component);
     value_new -> set(output_of_each_layer[num_layers - 1][ii]);
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
-      // Update: piv_deriv[jj] included to consider PIVs as input layer nodes. -- SD
-      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj] * piv_deriv[jj] );  // TODO: setDerivative or addDerivative?
+      if(piv_deriv_file.length()!=0){
+        // Update: piv_deriv[jj] included to consider PIVs as input layer nodes. -- SD
+        value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj] * piv_deriv[jj] ); 
+      } else {
+        value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]); // TODO: setDerivative or addDerivative?
+      }
     }
 #ifdef DEBUG_3
     printf("derivatives = ");
