@@ -213,7 +213,9 @@ private:
   // ds_array is the 1D array (dv(r)/dr) of the switching function --NH
   std::vector<double> ds_array;
   // ANN_sum_array is the 1D array (sum dv_d/dv_n) written to an output file for use by the ANN code --NH
-  std::vector<double> ANN_sum_array;
+  //std::vector<double> ANN_sum_array;
+  // ANN piv derivatives array written to output file for use by ANN code --SD
+  std::vector<std::vector<double>> ANN_piv_deriv;
   // The PIV_Pair vectors record the atom IDs for the PIV elements that are passed to the VAE --NH
   std::vector<int> PIV_Pair0;
   std::vector<int> PIV_Pair1;
@@ -292,7 +294,8 @@ PIV::PIV(const ActionOptions&ao):
   m_deriv(std:: vector<Vector>(1)),
   dr_dxyz_array(std:: vector<std:: vector<Vector> >(1)),
   ds_array(std:: vector<double>(1)),
-  ANN_sum_array(std:: vector<double>(1)),
+  //ANN_sum_array(std:: vector<double>(1)),
+  ANN_piv_deriv(std:: vector<std:: vector<double>>(Nlist)),
   ann_deriv(std:: vector<std:: vector<Vector> >(1)),
   PIV_Pair0(std:: vector<int>(1)),
   PIV_Pair1(std:: vector<int>(1)),
@@ -1192,9 +1195,13 @@ void PIV::calculate()
     }
     // resize vectors to the appropriate sizes and set starting values to zero --NH
     ds_array.resize(ann_deriv[0].size());
-    ANN_sum_array.resize(ds_array.size());
-    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
-      ANN_sum_array[j] = 0.;
+    //ANN_sum_array.resize(ds_array.size());
+    ANN_piv_deriv.resize(ds_array.size());
+    //for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+    //  ANN_sum_array[j] = 0.;
+    //}
+    for(unsigned j=0; j<ANN_piv_deriv.size(); j++) {
+        ANN_piv_deriv[j].resize(ds_array.size());
     }
     dr_dxyz_array.resize(ann_deriv.size());
     PIV_Pair0.resize(ds_array.size());
@@ -1256,11 +1263,11 @@ void PIV::calculate()
         // Calculate ann_deriv values for the current PIV element in the loop --NH
         ann_deriv[i0][PIV_element] -= ds_element*dr_dcoord;
         ann_deriv[i1][PIV_element] += ds_element*dr_dcoord;
-        // Record dr/dxyz values for ANN_sum_array calculation later in code --NH
+        // Record dr/dxyz values for ANN_sum_array calculation later in code --NH Question
         dr_dxyz_array[i0][PIV_element] -= dr_dcoord;
         dr_dxyz_array[i1][PIV_element] += dr_dcoord;
         // This m_virial is likely not correct but has been included in case it is necessary to test the code --NH
-        m_virial    -= ds_element*Tensor(distance,distance);
+        m_virial    -= ds_element*Tensor(distance,distance); // Question
         PIV_element += 1;
         //fprintf(atom0_file, "%8u\n", i0);
         //fprintf(atom1_file, "%8u\n", i1);
@@ -1268,15 +1275,17 @@ void PIV::calculate()
     }
     // The file "dri_drj_values.dat" was used for debugging and has since been commented out --NH
     
-    //double dri_drj = 0.;
+    double dri_drj = 0.;
     //FILE *dri_drj_file = NULL;
     //dri_drj_file = fopen("dri_drj_values.dat", "a");
 
     //This loops over the two PIV element sets (dv_d and dv_n) --NH
-    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+    //for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+    for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
       unsigned i0_j = PIV_Pair0[j];
       unsigned i1_j = PIV_Pair1[j];
-      for(unsigned i=0; i<ANN_sum_array.size(); i++) {
+      //for(unsigned i=0; i<ANN_sum_array.size(); i++) {
+        for(unsigned i=0; i<ANN_piv_deriv[j].size(); i++){
         double dri_drjalpha=0.;
         double dri_drjbeta=0.;
         for(unsigned k=0; k<3; k++) {
@@ -1287,21 +1296,33 @@ void PIV::calculate()
         }  
         dri_drj = dri_drjalpha + dri_drjbeta;
         //fprintf(dri_drj_file, "%8.6f\n", dri_drj);
-        // Calculate ANN_sum_array from sub-arrays --NH
-        ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
+        // Calculate ANN_sum_array from sub-arrays --NH Question
+        //ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
+        ANN_piv_deriv[j][i] = ds_array[i]*dri_drj/ds_array[j];
         dri_drj=0.;
       }
     }
     //fprintf(dri_drj_file, "END OF FRAME\n");
     //fclose(dri_drj_file);
     // Output the values of ANN_sum_array to a file to be read-in by the ANN module --NH
-    FILE *ANN_sum_file = NULL;
-    ANN_sum_file = fopen("ANN_deriv_sum.dat", "a");
-    for(unsigned j=0; j<ANN_sum_array.size(); j++) {
-      fprintf(ANN_sum_file, "%8.6f\n", ANN_sum_array[j]);
+    //FILE *ANN_sum_file = NULL;
+    //ANN_sum_file = fopen("ANN_deriv_sum.dat", "a");
+    //for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+    //  fprintf(ANN_sum_file, "%8.6f\n", ANN_sum_array[j]);
+    //}
+    //fprintf(ANN_sum_file, "END OF FRAME\n");
+    //fclose(ANN_sum_file);
+    FILE *ANN_deriv_file = NULL;
+    ANN_deriv_file = fopen("ANN_deriv_file.dat", "a");
+    for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
+        for(unsigned i=0; i<ANN_piv_deriv[j].size(); i++){
+            fprintf(ANN_deriv_file, "%8.6f\t", ANN_piv_deriv[j][i]);
+        }
+        fprintf(ANN_deriv_file, "\n");
     }
-    fprintf(ANN_sum_file, "END OF FRAME\n");
-    fclose(ANN_sum_file);
+    fprintf(ANN_deriv_file, "END OF FRAME\n");
+    fclose(ANN_deriv_file);
+    
     //fprintf(atom0_file, "END OF FRAME\n");
     //fclose(atom0_file);
     //fprintf(atom1_file, "END OF FRAME\n");
@@ -1317,6 +1338,7 @@ void PIV::calculate()
       log.printf("cPIV total count: %10d\n", count);
       comm.Barrier();
       comm.Sum(&cPIV[0][0],count);
+      // Question serial/parallel tests
       if(!ann_deriv.empty()) comm.Sum(&ann_deriv[0][0][0],3*ann_deriv.size()*ann_deriv[0].size());
       comm.Sum(&m_virial[0][0],9);
     }
@@ -1487,6 +1509,7 @@ void PIV::calculate()
         // Pass the 3D array to the plumed core --NH
         // A 2D array is passed for each PIV element (component) --NH
         for(unsigned k=0; k<ann_deriv.size(); k++) {
+          // Question - Can we exclude hydrogen atoms so that we can optimize as some the derivatives will be zeros?
           setAtomsDerivatives(valueNew, k, ann_deriv[k][total_count]);
         }
         //setAtomsDerivatives(valueNew, total_count, m_deriv[total_count]);
