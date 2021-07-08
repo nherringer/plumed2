@@ -413,15 +413,16 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                    * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
             } else {
               if(piv_deriv_file.length()!=0){
+                double weighted_piv_deriv_sum = 0.0;
                 // jj is 0
                 for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
                   // \sum_d=1toD w_dg x \partial v_d/\partial v_n -- SD
-                  derivatives_of_each_layer[jj][mm] += coeff[jj][kk][mm] \
-                                                       * piv_deriv[mm][dd];  
+                  weighted_piv_deriv_sum += coeff[jj][kk][mm] \
+                                            * piv_deriv[mm][dd];  
                 }
                 // \sum_g=1toG.
                 derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                     * derivatives_of_each_layer[jj][mm] \
+                                                     * weighted_piv_deriv_sum \
                                                      * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
               } else {
                 derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
