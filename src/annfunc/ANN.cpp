@@ -282,6 +282,14 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
         output_of_each_layer[ii][jj] = tanh(input_of_each_layer[ii][jj]);
       }
     }
+    else if (activations[ii-1] == string("ReLU")) { // Added ReLU -- SD      
+      for(int jj = 0; jj < num_nodes[ii]; ii ++) {
+        output_of_each_layer[ii][jj] = 0;
+        if (input_of_each_layer[ii][jj] > 0) {
+          output_of_each_layer[ii][jj] = input_of_each_layer[ii][jj];
+        }
+      }
+    }
     else if (activations[ii - 1] == string("Circular")) {
       assert (num_nodes[ii] % 2 == 0);
       for(int jj = 0; jj < num_nodes[ii] / 2; jj ++) {
@@ -421,6 +429,8 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   return;
 }
 
+// if(piv_deriv_file.length()!=0){
+
 void ANN::calculate() {
 
   vector<double> input_layer_data(num_nodes[0]);
@@ -437,12 +447,7 @@ void ANN::calculate() {
     Value* value_new=getPntrToComponent(name_of_this_component);
     value_new -> set(output_of_each_layer[num_layers - 1][ii]);
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
-      if(piv_deriv_file.length()!=0){
-        // Update: piv_deriv[jj] included to consider PIVs as input layer nodes. -- SD
-        value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj] * piv_deriv[jj] ); 
-      } else {
-        value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]); // TODO: setDerivative or addDerivative?
-      }
+      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]); // TODO: setDerivative or addDerivative?
     }
 #ifdef DEBUG_3
     printf("derivatives = ");
