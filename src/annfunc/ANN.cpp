@@ -419,9 +419,8 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                        * piv_deriv[mm][dd];  
                 }
                 derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                     * coeff[jj][kk][mm] \
-                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]) \
-                                                     * derivatives_of_each_layer[jj][mm];
+                                                     * derivatives_of_each_layer[jj][mm] \
+                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
               } else {
                 derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                      * coeff[jj][kk][mm] \
