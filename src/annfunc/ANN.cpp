@@ -100,7 +100,7 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
-  vector<double> piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
+  vector<vector<double> > piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
   std::string piv_deriv_file; // -- SD
 
 public:
@@ -173,7 +173,13 @@ ANN::ANN(const ActionOptions&ao):
   // Same size as number of nodes in input layer -- num_nodes[0]. 
   piv_deriv.resize(num_nodes[0]);
   for (unsigned j = 0; j < piv_deriv.size(); j++){
-    piv_deriv[j] = 1.0;
+    piv_deriv[j].resize(num_nodes[0]);
+  }
+
+  for (unsigned j = 0; j < piv_deriv.size(); j++){
+    for (unsigned i = 0; i < piv_deriv[j].size(); i++){
+      piv_deriv[j][j] = 1.0;
+    }
   }
 
   parse("PIV_DERIV_FILE", piv_deriv_file);
@@ -183,30 +189,44 @@ ANN::ANN(const ActionOptions&ao):
     if (fp) {
       //read derivatives to vector
       log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
-      double piv_deriv_element = 0.0;
-      int countPIVelements = 0;
-      while (fp >> piv_deriv_element){
-        piv_deriv[countPIVelements] = piv_deriv_element;
-        countPIVelements += 1;
-        if (countPIVelements > num_nodes[0]){
-            error("Size of piv derivatives file > number of nodes in the input layer.");
+      for (int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++) {
+        for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++) {
+          fp >> piv_deriv[npiv_size][dpiv_size];
+          if (!fp) {
+            error("Error while reading PIV derivatives file");
+          }
         }
       }
-      if (countPIVelements < num_nodes[0]){
-        error("Size of piv derivatives file < number of nodes in the input layer");
-      }
+
+      //double piv_deriv_element = 0.0;
+      //int ncountPIVelements = 0, dcountPIVelements = 0;
+      //while (fp >> piv_deriv_element){
+      //  piv_deriv[ncountPIVelements][dcountPIVelements] = piv_deriv_element;
+      //  dcountPIVelements += 1;
+      //  if (piv_deriv_element == "") {
+      //    ncountPIVelements += 1;
+      //  }
+      //  //if (countPIVelements > num_nodes[0]){
+      //  //    error("Size of piv derivatives file > number of nodes in the input layer.");
+      //  //}
+      //}
+      //if (countPIVelements < num_nodes[0]){
+      //  error("Size of piv derivatives file < number of nodes in the input layer");
+      //}
       fp.close();
       
       #ifdef DEBUG_PIVFILE
         cout << "PIV Derivative file: ";
-        for(int piv_size = 0; piv_size < piv_deriv.size(); piv_size++){
-          cout << piv_deriv[piv_size] << " ";
-        } 
-        cout << endl;
+        for(int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++){
+          for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++){
+            cout << piv_deriv[npiv_size][dpiv_size] << " ";
+          } 
+          cout << endl;
+        }
       #endif
 
     } else {
-      error("Error in reading PIV derivatives file.");
+      error("Error PIV derivatives file seems to be not defined.");
     }
   }
 
