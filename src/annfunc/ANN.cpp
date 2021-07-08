@@ -404,10 +404,30 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
         derivatives_of_each_layer[jj][mm] = 0;
         for (int kk = 0; kk < num_nodes[jj + 1]; kk ++) {
           if (activations[jj] == string("Tanh")) {
-            // printf("tanh\n");
-            derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                 * coeff[jj][kk][mm] \
-                                                 * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+
+            // Changes to accomodate PIV inputs -- SD
+            if (jj != 0) {
+              // printf("tanh\n");
+              derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                   * coeff[jj][kk][mm] \
+                                                   * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+            } else {
+              if(piv_deriv_file.length()!=0){
+                // jj is 0
+                for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
+                  derivatives_of_each_layer[jj][mm] += coeff[jj][kk][mm] \
+                                                       * piv_deriv[mm][dd];  
+                }
+                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                     * coeff[jj][kk][mm] \
+                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]) \
+                                                     * derivatives_of_each_layer[jj][mm];
+              } else {
+                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                     * coeff[jj][kk][mm] \
+                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+              }
+            }
           }
           else if (activations[jj] == string("Linear")) {
             // printf("linear\n");
@@ -448,8 +468,6 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
 #endif
   return;
 }
-
-// if(piv_deriv_file.length()!=0){
 
 void ANN::calculate() {
 
