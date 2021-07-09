@@ -1261,11 +1261,11 @@ void PIV::calculate()
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
         // Calculate ann_deriv values for the current PIV element in the loop --NH
-        ann_deriv[i0][PIV_element] -= ds_element*dr_dcoord;
-        ann_deriv[i1][PIV_element] += ds_element*dr_dcoord;
-        // Record dr/dxyz values for ANN_sum_array calculation later in code --NH Question
-        dr_dxyz_array[i0][PIV_element] -= dr_dcoord;
-        dr_dxyz_array[i1][PIV_element] += dr_dcoord;
+        ann_deriv[i0][PIV_element] = -ds_element*dr_dcoord;
+        ann_deriv[i1][PIV_element] =  ds_element*dr_dcoord;
+        // Record dr/dxyz values for ANN_sum_array calculation later in code --NH 
+        dr_dxyz_array[i0][PIV_element] = -dr_dcoord;
+        dr_dxyz_array[i1][PIV_element] =  dr_dcoord;
         // This m_virial is likely not correct but has been included in case it is necessary to test the code --NH
         m_virial    -= ds_element*Tensor(distance,distance); // Question
         PIV_element += 1;
@@ -1296,7 +1296,7 @@ void PIV::calculate()
         }  
         dri_drj = dri_drjalpha + dri_drjbeta;
         //fprintf(dri_drj_file, "%8.6f\n", dri_drj);
-        // Calculate ANN_sum_array from sub-arrays --NH Question
+        // Calculate ANN_sum_array from sub-arrays --NH 
         //ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
         ANN_piv_deriv[j][i] = ds_array[i]*dri_drj/ds_array[j];
         dri_drj=0.;
@@ -1313,7 +1313,7 @@ void PIV::calculate()
     //fprintf(ANN_sum_file, "END OF FRAME\n");
     //fclose(ANN_sum_file);
     FILE *ANN_deriv_file = NULL;
-    ANN_deriv_file = fopen("ANN_deriv_file.dat", "a");
+    ANN_deriv_file = fopen("ANN_deriv_file.dat", "a"); // Question: Should this be w+; a works for trajectories.
     for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
         for(unsigned i=0; i<ANN_piv_deriv[j].size(); i++){
             fprintf(ANN_deriv_file, "%8.6f\t", ANN_piv_deriv[j][i]);
