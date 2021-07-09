@@ -417,7 +417,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                 // jj is 0
                 for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
                   // \sum_d=1toD w_dg x \partial v_d/\partial v_n -- SD
-                  weighted_piv_deriv_sum += coeff[jj][kk][mm] \
+                  weighted_piv_deriv_sum += coeff[jj][kk][dd] \
                                             * piv_deriv[mm][dd];  
                 }
                 // \sum_g=1toG.
