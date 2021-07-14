@@ -28,6 +28,7 @@ SOFTWARE.
 #include <string>
 #include <cmath>
 #include <iostream>
+#include <fstream> //-- SD
 // #include <stdio.h>
 
 using namespace std;
@@ -35,6 +36,7 @@ using namespace std;
 // #define DEBUG
 // #define DEBUG_2
 // #define DEBUG_3
+#define DEBUG_PIVFILE
 
 namespace PLMD {
 namespace function {
@@ -98,6 +100,8 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
+  vector<vector<double> > piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
+  std::string piv_deriv_file; // -- SD
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -120,6 +124,8 @@ void ANN::registerKeywords( Keywords& keys ) {
            "WEIGHTS1 represents flattened weight array connecting layer 1 and layer 2, ...");
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
+  keys.add("optional", "PIV_DERIV_FILE", 
+           "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
   // since v2.2 plumed requires all components be registered
   keys.addOutputComponent("node", "default", "components of ANN outputs");
 }
@@ -161,6 +167,67 @@ ANN::ANN(const ActionOptions&ao):
     biases.push_back(temp_single_bias);
     log.printf("size of temp_single_bias = %lu\n", temp_single_bias.size());
     log.printf("size of biases = %lu\n", biases.size());
+  }
+
+  // initialize piv_deriv to 1 (default --- x,y,z as input. otherwise read from file). -- SD
+  // Same size as number of nodes in input layer -- num_nodes[0]. 
+  piv_deriv.resize(num_nodes[0]);
+  for (unsigned j = 0; j < piv_deriv.size(); j++){
+    piv_deriv[j].resize(num_nodes[0]);
+  }
+
+  for (unsigned j = 0; j < piv_deriv.size(); j++){
+    for (unsigned i = 0; i < piv_deriv[j].size(); i++){
+      piv_deriv[j][j] = 1.0;
+    }
+  }
+
+  parse("PIV_DERIV_FILE", piv_deriv_file);
+  if(piv_deriv_file.length()!=0){
+    ifstream fp(piv_deriv_file);
+
+    if (fp) {
+      //read derivatives to vector
+      log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
+      for (int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++) {
+        for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++) {
+          fp >> piv_deriv[npiv_size][dpiv_size];
+          if (!fp) {
+            error("Error while reading PIV derivatives file");
+          }
+        }
+      }
+
+      //double piv_deriv_element = 0.0;
+      //int ncountPIVelements = 0, dcountPIVelements = 0;
+      //while (fp >> piv_deriv_element){
+      //  piv_deriv[ncountPIVelements][dcountPIVelements] = piv_deriv_element;
+      //  dcountPIVelements += 1;
+      //  if (piv_deriv_element == "") {
+      //    ncountPIVelements += 1;
+      //  }
+      //  //if (countPIVelements > num_nodes[0]){
+      //  //    error("Size of piv derivatives file > number of nodes in the input layer.");
+      //  //}
+      //}
+      //if (countPIVelements < num_nodes[0]){
+      //  error("Size of piv derivatives file < number of nodes in the input layer");
+      //}
+      fp.close();
+      
+      #ifdef DEBUG_PIVFILE
+        cout << "PIV Derivative file: ";
+        for(int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++){
+          for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++){
+            cout << piv_deriv[npiv_size][dpiv_size] << " ";
+          } 
+          cout << endl;
+        }
+      #endif
+
+    } else {
+      error("Error PIV derivatives file seems to be not defined.");
+    }
   }
 
   if(getNumberOfArguments() != num_nodes[0]) {
@@ -235,6 +302,14 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
         output_of_each_layer[ii][jj] = tanh(input_of_each_layer[ii][jj]);
       }
     }
+    else if (activations[ii-1] == string("ReLU")) { // Added ReLU -- SD      
+      for(int jj = 0; jj < num_nodes[ii]; ii ++) {
+        output_of_each_layer[ii][jj] = 0;
+        if (input_of_each_layer[ii][jj] > 0) {
+          output_of_each_layer[ii][jj] = input_of_each_layer[ii][jj];
+        }
+      }
+    }
     else if (activations[ii - 1] == string("Circular")) {
       assert (num_nodes[ii] % 2 == 0);
       for(int jj = 0; jj < num_nodes[ii] / 2; jj ++) {
@@ -277,7 +352,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   // first calculate derivatives for bottleneck layer
   for (int ii = 0; ii < num_nodes[num_nodes.size() - 1]; ii ++ ) {
     if (ii == index_of_output_component) {
-      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1;
+      derivatives_of_each_layer[num_nodes.size() - 1][ii] = 1; 
     }
     else {
       derivatives_of_each_layer[num_nodes.size() - 1][ii] = 0;
@@ -329,16 +404,49 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
         derivatives_of_each_layer[jj][mm] = 0;
         for (int kk = 0; kk < num_nodes[jj + 1]; kk ++) {
           if (activations[jj] == string("Tanh")) {
-            // printf("tanh\n");
-            derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                 * coeff[jj][kk][mm] \
-                                                 * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+
+            // Changes to accomodate PIV inputs -- SD
+            if (jj != 0) {
+              // printf("tanh\n");
+              derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                   * coeff[jj][kk][mm] \
+                                                   * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+            } else {
+              if(piv_deriv_file.length()!=0){
+                double weighted_piv_deriv_sum = 0.0;
+                // jj is 0
+                for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
+                  // \sum_d=1toD w_dg x \partial v_d/\partial v_n -- SD
+                  weighted_piv_deriv_sum += coeff[jj][kk][dd] \
+                                            * piv_deriv[mm][dd];  
+                }
+                // \sum_g=1toG.
+                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                     * weighted_piv_deriv_sum \
+                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+              } else {
+                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                     * coeff[jj][kk][mm] \
+                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+              }
+            }
           }
           else if (activations[jj] == string("Linear")) {
             // printf("linear\n");
             derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                  * coeff[jj][kk][mm] \
                                                  * 1;
+          }
+          else if (activations[jj] == string("ReLU")) {
+              // printf("ReLU\n") // Added ReLU -- SD
+            if (output_of_each_layer[jj + 1][kk] <= 0) {
+              derivatives_of_each_layer[jj][mm] += 0;
+            }
+            else {
+              derivatives_of_each_layer[jj + 1][kk] += derivatives_of_each_layer[jj + 1][kk] \                                
+                                                    * coeff[jj][kk][mm] \
+                                                    * 1;
+            }
           }
           else {
             printf("layer type not found!\n\n");
@@ -379,7 +487,7 @@ void ANN::calculate() {
     Value* value_new=getPntrToComponent(name_of_this_component);
     value_new -> set(output_of_each_layer[num_layers - 1][ii]);
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
-      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]);  // TODO: setDerivative or addDerivative?
+      value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]); // TODO: setDerivative or addDerivative?
     }
 #ifdef DEBUG_3
     printf("derivatives = ");

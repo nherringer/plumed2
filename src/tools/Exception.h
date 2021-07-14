@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2020 The plumed team
+   Copyright (c) 2012-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -275,6 +275,18 @@ public:
   using Exception::Exception;
   template<typename T>
   ExceptionDebug& operator<<(const T & x) {
+    *((Exception*) this) <<x;
+    return *this;
+  }
+};
+
+/// Class representing a type error in the PLMD::Plumed interface
+class ExceptionTypeError :
+  public Exception {
+public:
+  using Exception::Exception;
+  template<typename T>
+  ExceptionTypeError& operator<<(const T & x) {
     *((Exception*) this) <<x;
     return *this;
   }

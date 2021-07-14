@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2020 The plumed team
+   Copyright (c) 2012-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -99,7 +99,7 @@ protected:
 /// Return the numerical label
   int getNumericalLabel() const ;
 /// Report an error
-  void error(const std::string& errmsg);
+  [[noreturn]] void error(const std::string& errmsg);
 /// Parse something from the input
   template<class T>
   void parse(const std::string&key, T&t);

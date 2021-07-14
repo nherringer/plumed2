@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2020 The plumed team
+   Copyright (c) 2012-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -205,7 +205,7 @@ bool CLTool::readInputFile( int argc, char**argv, FILE* in, FILE*out ) {
   return true;
 }
 
-void CLTool::error( const std::string& msg ) {
+[[noreturn]] void CLTool::error( const std::string& msg ) {
   fprintf(stderr,"ERROR : in input for command line tool %s : %s\n",name.c_str(),msg.c_str());
   plumed_error();
 }

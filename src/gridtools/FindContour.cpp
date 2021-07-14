@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2015-2020 The plumed team
+   Copyright (c) 2015-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -100,6 +100,8 @@ private:
   double lenunit;
   std::string fmt_xyz;
 /// The data is stored in a grid
+// NOTE: this suppression should be double checked:
+// cppcheck-suppress duplInheritedMember
   vesselbase::StoreDataVessel* mydata;
 public:
   static void registerKeywords( Keywords& keys );

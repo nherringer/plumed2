@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2020 The plumed team
+   Copyright (c) 2012-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -586,10 +586,10 @@ private:
         for(int i=0; i<3; i++) cell9[i][i]=cell[i];
         plumed->cmd("setStep",&istepplusone);
         plumed->cmd("setMasses",&masses[0]);
-        plumed->cmd("setForces",&forces[0]);
+        plumed->cmd("setForces",&forces[0][0]);
         plumed->cmd("setEnergy",&engconf);
-        plumed->cmd("setPositions",&positions[0]);
-        plumed->cmd("setBox",cell9);
+        plumed->cmd("setPositions",&positions[0][0]);
+        plumed->cmd("setBox",&cell9[0][0]);
         plumed->cmd("setStopFlag",&plumedWantsToStop);
         plumed->cmd("calc");
         if(plumedWantsToStop) nstep=istep;

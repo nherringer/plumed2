@@ -1,5 +1,5 @@
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   Copyright (c) 2012-2020 The plumed team
+   Copyright (c) 2012-2021 The plumed team
    (see the PEOPLE file at the root of the distribution for a list of names)
 
    See http://www.plumed.org for more information.
@@ -22,6 +22,7 @@
 #include "LatticeReduction.h"
 #include "Exception.h"
 #include <cstdio>
+#include <cmath>
 
 namespace PLMD {
 
@@ -49,6 +50,10 @@ void LatticeReduction::reduce(Vector&a,Vector&b) {
     ma=modulo2(a);
     if(mb<=ma*onePlusEpsilon) break;
     counter++;
+    if(counter%100==0) { // only test rarely since this might be expensive
+      plumed_assert(!std::isnan(ma));
+      plumed_assert(!std::isnan(mb));
+    }
     if(counter%10000==0) fprintf(stderr,"WARNING: LatticeReduction::reduce stuck after %u iterations\n",counter);
   }
 
