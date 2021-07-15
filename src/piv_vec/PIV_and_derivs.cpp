@@ -222,6 +222,7 @@ private:
   Tensor m_virial;
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
+  int writestride;
 public:
   static void registerKeywords( Keywords& keys );
   explicit PIV(const ActionOptions&);
@@ -261,6 +262,7 @@ void PIV::registerKeywords( Keywords& keys )
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
   keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
+  keys.add("optional","WRITESTRIDE","STRIDE to write PIV_representation and ANN_derivative files.");
   componentsAreNotOptional(keys);
   keys.addOutputComponent("_ELEMENT", "COMPONENTS", "Elements of the PIV block. The position in the N choose 2 interactions (i) and the neighbor in the neighbor list (j) is given as PIV-i-j.");
   keys.reset_style("SWITCH","compulsory");
@@ -306,6 +308,7 @@ PIV::PIV(const ActionOptions&ao):
   test(false),
   CompDer(false),
   com(false),
+  writestride(1),
   cart2piv(false)
 {
   log << "Starting PIV Constructor\n";
@@ -531,6 +534,12 @@ PIV::PIV(const ActionOptions&ao):
     parseVector("SFACTOR",scaling);
     //if(scaling.size()!=getNumberOfArguments() && scaling.size()!=0) error("not enough values for SFACTOR");
   }
+
+  // Added STRIDE -- SD
+  if(keywords.exists("WRITESTRIDE")) { 
+    parse("WRITESTRIDE", writestride);
+  }
+
   // Neighbour Lists option
   parseFlag("NLIST",doneigh);
   nl.resize(Nlist);
@@ -1145,8 +1154,14 @@ void PIV::calculate()
   // Write out file of PIV representation for each frame of the trajectory
   if(cart2piv) {
     // open a file in append mode.
+
+    //int STRIDE = 1000;                                                        
     FILE *piv_rep_file = NULL;
-    piv_rep_file = fopen("PIV_representation.dat", "a");
+    if (getStep() % writestride == 0) {                                                                                      
+      string piv_rep_fileName = "PIV_representation_" + to_string(getStep()) + ".dat";                                    
+      piv_rep_file = fopen(piv_rep_fileName.c_str(), "w+"); 
+    }
+
     for(unsigned j=0; j<Nlist; j++) {
       bool dosorting=dosort[j];
       unsigned limit=0;
@@ -1163,18 +1178,24 @@ void PIV::calculate()
         if(limit > NL_const_size) {
           start_val = limit - NL_const_size;
         }
-        for(unsigned i=start_val; i<limit; i++) {
-          fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+        if (getStep() % writestride == 0) {
+          for(unsigned i=start_val; i<limit; i++) {
+            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+          }
         }
       } else {
         // Prints out in the same PIV block element format as TEST
-        for(unsigned i=0; i<limit; i++) {
-          fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+        if (getStep() % writestride == 0) {
+          for(unsigned i=0; i<limit; i++) {
+            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+          }
         }
       }
     }
-    fprintf(piv_rep_file, "END OF FRAME\n");
-    fclose(piv_rep_file);
+    if (getStep() % writestride == 0) {
+      fprintf(piv_rep_file, "END OF FRAME: %d \n", getStep());
+      fclose(piv_rep_file);
+    }
   }
 
   if(timer) stopwatch.start("4 Build For Derivatives");
@@ -1312,22 +1333,27 @@ void PIV::calculate()
     //}
     //fprintf(ANN_sum_file, "END OF FRAME\n");
     //fclose(ANN_sum_file);
-    FILE *ANN_deriv_file = NULL;
-    ANN_deriv_file = fopen("ANN_deriv_file.dat", "a"); // Question: Should this be w+; a works for trajectories.
-    for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
+    //int STRIDE = 1000;
+    if (getStep() % writestride == 0) {
+      FILE *ANN_deriv_file = NULL;
+      string ANN_deriv_fileName = "ANN_deriv_file_" + to_string(getStep()) + ".dat";
+      ANN_deriv_file = fopen(ANN_deriv_fileName.c_str(), "w+"); // Question: Should this be w+; a works for trajectories.
+      for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
         for(unsigned i=0; i<ANN_piv_deriv[j].size(); i++){
-            fprintf(ANN_deriv_file, "%8.6f\t", ANN_piv_deriv[j][i]);
+          fprintf(ANN_deriv_file, "%8.6f\t", ANN_piv_deriv[j][i]);
         }
         fprintf(ANN_deriv_file, "\n");
+      }
+      fprintf(ANN_deriv_file, "END OF FRAME: %d \n", getStep());
+      fclose(ANN_deriv_file);
     }
-    fprintf(ANN_deriv_file, "END OF FRAME\n");
-    fclose(ANN_deriv_file);
     
     //fprintf(atom0_file, "END OF FRAME\n");
     //fclose(atom0_file);
     //fprintf(atom1_file, "END OF FRAME\n");
     //fclose(atom1_file);
-    log.printf("cPIV size: %10d\n", cPIV.size());
+    
+    //log.printf("cPIV size: %10d\n", cPIV.size());
     if (!serial && comm.initialized()) {
       int count = 0;
       for(unsigned j=0; j<Nlist; j++) {
@@ -1335,7 +1361,9 @@ void PIV::calculate()
               count += 1;
           }
       }
-      log.printf("cPIV total count: %10d\n", count);
+      
+      //log.printf("cPIV total count: %10d\n", count);
+      
       comm.Barrier();
       comm.Sum(&cPIV[0][0],count);
       // Question serial/parallel tests
@@ -1518,7 +1546,9 @@ void PIV::calculate()
     }
     //fprintf(ann_deriv_file, "END OF FRAME\n");
     //fclose(ann_deriv_file);
-    setBoxDerivatives  (m_virial);
+    
+    //setBoxDerivatives  (m_virial); Question -- Probably not required.
+    
     //FILE *atom0_file = NULL;
     //atom0_file = fopen("Atom0.dat", "a");
     //FILE *atom1_file = NULL;
