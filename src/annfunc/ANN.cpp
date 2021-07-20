@@ -34,9 +34,10 @@ SOFTWARE.
 using namespace std;
 
 // #define DEBUG
-// #define DEBUG_2
-// #define DEBUG_3
-#define DEBUG_PIVFILE
+//#define DEBUG_2
+//#define DEBUG_3
+//#define DEBUG_LAYERDERIVATIVES
+//#define DEBUG_PIVFILE
 
 namespace PLMD {
 namespace function {
@@ -456,7 +457,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
       }
     }
   }
-#ifdef DEBUG
+#ifdef DEBUG_LAYERDERIVATIVES
   // print out the result for debugging
   printf("derivatives_of_each_layer = \n");
   for (int ii = 0; ii < num_layers; ii ++) {
