@@ -1,0 +1,1010 @@
+                  :-) GROMACS - gmx mdrun, 2021.1-MODIFIED (-:
+
+                            GROMACS is written by:
+     Andrey Alekseenko              Emile Apol              Rossen Apostolov     
+         Paul Bauer           Herman J.C. Berendsen           Par Bjelkmar       
+       Christian Blau           Viacheslav Bolnykh             Kevin Boyd        
+     Aldert van Buuren           Rudi van Drunen             Anton Feenstra      
+    Gilles Gouaillardet             Alan Gray               Gerrit Groenhof      
+       Anca Hamuraru            Vincent Hindriksen          M. Eric Irrgang      
+      Aleksei Iupinov           Christoph Junghans             Joe Jordan        
+    Dimitrios Karkoulis            Peter Kasson                Jiri Kraus        
+      Carsten Kutzner              Per Larsson              Justin A. Lemkul     
+       Viveca Lindahl            Magnus Lundborg             Erik Marklund       
+        Pascal Merz             Pieter Meulenhoff            Teemu Murtola       
+        Szilard Pall               Sander Pronk              Roland Schulz       
+       Michael Shirts            Alexey Shvetsov             Alfons Sijbers      
+       Peter Tieleman              Jon Vincent              Teemu Virolainen     
+     Christian Wennberg            Maarten Wolf              Artem Zhmurov       
+                           and the project leaders:
+        Mark Abraham, Berk Hess, Erik Lindahl, and David van der Spoel
+
+Copyright (c) 1991-2000, University of Groningen, The Netherlands.
+Copyright (c) 2001-2019, The GROMACS development team at
+Uppsala University, Stockholm University and
+the Royal Institute of Technology, Sweden.
+check out http://www.gromacs.org for more information.
+
+GROMACS is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License
+as published by the Free Software Foundation; either version 2.1
+of the License, or (at your option) any later version.
+
+GROMACS:      gmx mdrun, version 2021.1-MODIFIED
+Executable:   /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files/bin/gmx
+Data prefix:  /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files
+Working dir:  /data/research/enhancements/plumed-development/plumed2/regtest/annfunc/rt-test_piv_input
+Command line:
+  gmx mdrun -ntomp 5 -s simple_run_template/3_md/md.tpr -deffnm plumed-test-md -pin on -plumed plumed.dat -v
+
+
+Back Off! I just backed up plumed-test-md.log to ./#plumed-test-md.log.6#
+Reading file simple_run_template/3_md/md.tpr, VERSION 2021.1-MODIFIED (single precision)
+Changing nstlist from 10 to 50, rlist from 1 to 1.11
+
+Using 1 MPI process
+Using 5 OpenMP threads 
+
+
+Back Off! I just backed up plumed-test-md.xtc to ./#plumed-test-md.xtc.6#
+
+Back Off! I just backed up plumed-test-md.edr to ./#plumed-test-md.edr.6#
+starting mdrun 'c24 in water'
+5 steps,      0.0 ps.
+PIV Derivative file: 6 2.77938 -342.676 -1451.02 -11.3539 -1657.64 1358.81 0 0 
+7.53413 6 -153.131 -837.007 7.99488 0 0 -452.064 -895.724 
+0.015472 -0.05326 6 5.62886 0 0 0 0 0 
+-0.106658 -0.174133 4.24193 6 0 0 3.51465 0 0 
+7.9786 -0.95283 0 0 6 203.375 -223.898 79.3143 -82.5048 
+-0.577148 0 0 0 0.863518 6 -1.84802 0 0 
+-0.145293 0 0 4.36047 -0.38066 -0.967768 6 0 0 
+0 -0.163397 0 0 -0.636781 0 0 6 2.72125 
+0 0.377531 0 0 1.64025 0 0 -0.631522 6 
+ Frame: 0 	 j: 1 	 i: 0 	 r: 0.153750 	 PIV: 0.992865 
+ Frame: 0 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.221995 	 dPELE/dy: -0.164718 	 dPELE/dz: 0.002492 
+ Frame: 0 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.803044 	 dr_dcoordy: 0.595851 	 dr_dcoordz: -0.009014 
+ Frame: 0 	 j: 5 	 i: 0 	 r: 0.646021 	 PIV: 0.024665 
+ Frame: 0 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.221650 	 dPELE/dy: -0.027861 	 dPELE/dz: 0.004016 
+ Frame: 0 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.992032 	 dr_dcoordy: 0.124697 	 dr_dcoordz: -0.017976 
+ Frame: 0 	 j: 12053 	 i: 0 	 r: 0.356455 	 PIV: 0.472613 
+ Frame: 0 	 j: 12053 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: -3.566369 	 dPELE/dy: -2.041908 	 dPELE/dz: -0.844768 
+ Frame: 0 	 j: 12053 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: 0.850051 	 dr_dcoordy: 0.486693 	 dr_dcoordz: 0.201352 
+ Frame: 0 	 j: 5381 	 i: 0 	 r: 0.316148 	 PIV: 0.648016 
+ Frame: 0 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.186960 	 dPELE/dy: -2.032165 	 dPELE/dz: -3.633189 
+ Frame: 0 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.274200 	 dr_dcoordy: 0.469451 	 dr_dcoordz: 0.839304 
+ Frame: 0 	 j: 5 	 i: 1 	 r: 0.517624 	 PIV: 0.087233 
+ Frame: 0 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.922558 	 dPELE/dy: 0.019713 	 dPELE/dz: 0.018235 
+ Frame: 0 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999577 	 dr_dcoordy: -0.021359 	 dr_dcoordz: -0.019758 
+ Frame: 0 	 j: 2945 	 i: 1 	 r: 0.351844 	 PIV: 0.492120 
+ Frame: 0 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 1.022674 	 dPELE/dy: -0.458227 	 dPELE/dz: 4.112238 
+ Frame: 0 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.239940 	 dr_dcoordy: 0.107510 	 dr_dcoordz: -0.964816 
+ Frame: 0 	 j: 5381 	 i: 1 	 r: 0.344292 	 PIV: 0.524643 
+ Frame: 0 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.652907 	 dPELE/dy: -0.717062 	 dPELE/dz: -3.367072 
+ Frame: 0 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.610400 	 dr_dcoordy: 0.164987 	 dr_dcoordz: 0.774720 
+ Frame: 0 	 j: 9755 	 i: 5 	 r: 0.382937 	 PIV: 0.368274 
+ Frame: 0 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.465028 	 dPELE/dy: -3.053117 	 dPELE/dz: 1.348987 
+ Frame: 0 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.401904 	 dr_dcoordy: 0.837568 	 dr_dcoordz: -0.370071 
+ Frame: 0 	 j: 3278 	 i: 5 	 r: 0.372031 	 PIV: 0.409443 
+ Frame: 0 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.564027 	 dPELE/dy: -1.956755 	 dPELE/dz: 3.325713 
+ Frame: 0 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.144635 	 dr_dcoordy: 0.501775 	 dr_dcoordz: -0.852820 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.438818 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -22.579088 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -92.663225 
+dri_drjalpha: -3.400724 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -107.512826 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 86.428179 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.089355 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.155005 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -43.201798 
+dri_drjalpha: 1.935424 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -27.708866 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -51.320237 	 dri_drjbeta: 0.000000 
+i0: 12053	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.234818 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.000090 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 5.455479 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.670170 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.373712 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.376749 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_step 0drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.500611 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 26.637921 
+dri_drjalpha: -3.935966 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 44.039369 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -47.546705 
+dri_drjalpha: 20.081934 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -19.526735 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.898504 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.987748 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.812311 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.284271 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.377961 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.792536 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.986836 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.665783 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.514988 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.543692 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.589282 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.930433 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.675604 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.992899	0.024702	0.472647	0.648065	0.087209	0.492149	0.524652	0.368237	0.409441	
+layer[1]: Tanh	0.999913	0.999913	0.999913	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001471 -0.001627 0.000008 0.000009 -0.000008 0.000003 0.000006 0.000006 0.000005 
+derivatives = -0.001471 -0.001627 0.000008 0.000009 -0.000008 0.000003 0.000006 0.000006 0.000005 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+ Frame: 1 	 j: 1 	 i: 0 	 r: 0.153401 	 PIV: 0.992961 
+ Frame: 1 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.218386 	 dPELE/dy: -0.164432 	 dPELE/dz: -0.000515 
+ Frame: 1 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.798870 	 dr_dcoordy: 0.601501 	 dr_dcoordz: 0.001884 
+ Frame: 1 	 j: 5 	 i: 0 	 r: 0.645749 	 PIV: 0.024726 
+ Frame: 1 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.222191 	 dPELE/dy: -0.028621 	 dPELE/dz: 0.003842 
+ Frame: 1 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.991660 	 dr_dcoordy: 0.127739 	 dr_dcoordz: -0.017149 
+ Frame: 1 	 j: 12053 	 i: 0 	 r: 0.357297 	 PIV: 0.469086 
+ Frame: 1 	 j: 12053 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: -3.551144 	 dPELE/dy: -2.037645 	 dPELE/dz: -0.853009 
+ Frame: 1 	 j: 12053 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: 0.849122 	 dr_dcoordy: 0.487226 	 dr_dcoordz: 0.203965 
+ Frame: 1 	 j: 5381 	 i: 0 	 r: 0.315214 	 PIV: 0.652055 
+ Frame: 1 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.193428 	 dPELE/dy: -2.037422 	 dPELE/dz: -3.615897 
+ Frame: 1 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.276348 	 dr_dcoordy: 0.471781 	 dr_dcoordz: 0.837290 
+ Frame: 1 	 j: 5 	 i: 1 	 r: 0.518033 	 PIV: 0.086856 
+ Frame: 1 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.918233 	 dPELE/dy: 0.017349 	 dPELE/dz: 0.020150 
+ Frame: 1 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999581 	 dr_dcoordy: -0.018886 	 dr_dcoordz: -0.021935 
+ Frame: 1 	 j: 2945 	 i: 1 	 r: 0.352745 	 PIV: 0.488284 
+ Frame: 1 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 1.011213 	 dPELE/dy: -0.467319 	 dPELE/dz: 4.101439 
+ Frame: 1 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.237931 	 dr_dcoordy: 0.109957 	 dr_dcoordz: -0.965038 
+ Frame: 1 	 j: 5381 	 i: 1 	 r: 0.341534 	 PIV: 0.536662 
+ Frame: 1 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.681572 	 dPELE/dy: -0.721903 	 dPELE/dz: -3.371998 
+ Frame: 1 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.613866 	 dr_dcoordy: 0.165258 	 dr_dcoordz: 0.771919 
+ Frame: 1 	 j: 9755 	 i: 5 	 r: 0.381390 	 PIV: 0.373945 
+ Frame: 1 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.479794 	 dPELE/dy: -3.087550 	 dPELE/dz: 1.357120 
+ Frame: 1 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.401790 	 dr_dcoordy: 0.838323 	 dr_dcoordz: -0.368482 
+ Frame: 1 	 j: 3278 	 i: 5 	 r: 0.371677 	 PIV: 0.410825 
+ Frame: 1 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.566023 	 dPELE/dy: -1.956929 	 dPELE/dz: 3.334323 
+ Frame: 1 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.144860 	 dr_dcoordy: 0.500828 	 dr_dcoordz: -0.853339 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -7.650232 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 108.025432 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 444.927844 
+dri_drjalpha: 10.424692 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 511.826113 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -409.292335 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 5.404575 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.935615 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -45.409273 
+dri_drjalpha: 2.139208 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -28.454809 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -53.534398 	 dri_drjbeta: 0.000000 
+i0: 12053	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.302958 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.989767 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 5.398816 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.613607 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.338170 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.348997 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.493563 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 31.135919 
+dri_drjalpha: -4.989836 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 38.411324 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -44.555747 
+dri_drjalpha: 27.188121 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -12.239553 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.825966 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.052112 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.876963 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.340830 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.389678 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.771035 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.972413 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.667019 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.524820 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.552704 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.570497 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.912337 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.667960 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.992999	0.024702	0.469047	0.652065	0.086809	0.488249	0.536654	0.373937	0.410841	
+layer[1]: Tanh	0.999915	0.999915	0.999915	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001427 -0.001578 0.000008 0.000009 -0.000007 0.000003 0.000006 0.000005 0.000005 
+derivatives = -0.001427 -0.001578 0.000008 0.000009 -0.000007 0.000003 0.000006 0.000005 0.000005 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+ Frame: 2 	 j: 1 	 i: 0 	 r: 0.152974 	 PIV: 0.993077 
+ Frame: 2 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.214155 	 dPELE/dy: -0.163788 	 dPELE/dz: -0.004760 
+ Frame: 2 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.794195 	 dr_dcoordy: 0.607407 	 dr_dcoordz: 0.017652 
+ Frame: 2 	 j: 5 	 i: 0 	 r: 0.645157 	 PIV: 0.024859 
+ Frame: 2 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.223482 	 dPELE/dy: -0.029446 	 dPELE/dz: 0.003579 
+ Frame: 2 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.991306 	 dr_dcoordy: 0.130613 	 dr_dcoordz: -0.015874 
+ Frame: 2 	 j: 9146 	 i: 0 	 r: 0.357867 	 PIV: 0.466708 
+ Frame: 2 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: 1.204462 	 dPELE/dy: 3.915769 	 dPELE/dz: 0.793273 
+ Frame: 2 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: -0.288638 	 dr_dcoordy: -0.938376 	 dr_dcoordz: -0.190100 
+ Frame: 2 	 j: 5381 	 i: 0 	 r: 0.314686 	 PIV: 0.654336 
+ Frame: 2 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.200476 	 dPELE/dy: -2.040308 	 dPELE/dz: -3.604674 
+ Frame: 2 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.278371 	 dr_dcoordy: 0.473115 	 dr_dcoordz: 0.835866 
+ Frame: 2 	 j: 5 	 i: 1 	 r: 0.518291 	 PIV: 0.086620 
+ Frame: 2 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.915485 	 dPELE/dy: 0.015288 	 dPELE/dz: 0.022870 
+ Frame: 2 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999549 	 dr_dcoordy: -0.016692 	 dr_dcoordz: -0.024970 
+ Frame: 2 	 j: 2945 	 i: 1 	 r: 0.353893 	 PIV: 0.483413 
+ Frame: 2 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 0.999301 	 dPELE/dy: -0.473953 	 dPELE/dz: 4.086892 
+ Frame: 2 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.236024 	 dr_dcoordy: 0.111942 	 dr_dcoordz: -0.965278 
+ Frame: 2 	 j: 5381 	 i: 1 	 r: 0.338563 	 PIV: 0.549668 
+ Frame: 2 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.709189 	 dPELE/dy: -0.725135 	 dPELE/dz: -3.373157 
+ Frame: 2 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.617582 	 dr_dcoordy: 0.165301 	 dr_dcoordz: 0.768939 
+ Frame: 2 	 j: 9755 	 i: 5 	 r: 0.379902 	 PIV: 0.379451 
+ Frame: 2 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.496338 	 dPELE/dy: -3.119938 	 dPELE/dz: 1.362714 
+ Frame: 2 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.402363 	 dr_dcoordy: 0.838947 	 dr_dcoordz: -0.366432 
+ Frame: 2 	 j: 3278 	 i: 5 	 r: 0.371112 	 PIV: 0.413038 
+ Frame: 2 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.566118 	 dPELE/dy: -1.960173 	 dPELE/dz: 3.346766 
+ Frame: 2 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.144431 	 dr_dcoordy: 0.500089 	 dr_dcoordz: -0.853844 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.563934 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -11.950689 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 47.780441 
+dri_drjalpha: 0.183482 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 54.201782 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -43.055141 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.339591 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 5.082037 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -49.313414 
+dri_drjalpha: 2.453498 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -29.912153 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -57.470464 	 dri_drjbeta: 0.000000 
+i0: 9146	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.011374 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.378745 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -5.865589 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.548041 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.304016 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.247712 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.487877 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 36.300710 
+dri_drjalpha: -6.197256 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 32.187103 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -41.314889 
+dri_drjalpha: 35.182060 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -4.090815 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.772678 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.111704 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.936553 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.411544 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.399930 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.751942 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.960306 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.662720 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.532444 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.567295 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.583752 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.924727 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.679100 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.993099	0.024902	0.466747	0.654365	0.086609	0.483448	0.549655	0.379438	0.413041	
+layer[1]: Tanh	0.999918	0.999918	0.999918	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001382 -0.001528 0.000008 0.000009 -0.000007 0.000003 0.000006 0.000005 0.000005 
+derivatives = -0.001382 -0.001528 0.000008 0.000009 -0.000007 0.000003 0.000006 0.000005 0.000005 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+ Frame: 3 	 j: 1 	 i: 0 	 r: 0.152800 	 PIV: 0.993124 
+ Frame: 3 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.211771 	 dPELE/dy: -0.164163 	 dPELE/dz: -0.010102 
+ Frame: 3 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.789780 	 dr_dcoordy: 0.612232 	 dr_dcoordz: 0.037673 
+ Frame: 3 	 j: 5 	 i: 0 	 r: 0.644380 	 PIV: 0.025035 
+ Frame: 3 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.225229 	 dPELE/dy: -0.030230 	 dPELE/dz: 0.003208 
+ Frame: 3 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.991014 	 dr_dcoordy: 0.133015 	 dr_dcoordz: -0.014116 
+ Frame: 3 	 j: 9146 	 i: 0 	 r: 0.355280 	 PIV: 0.477556 
+ Frame: 3 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: 1.216810 	 dPELE/dy: 3.958129 	 dPELE/dz: 0.778655 
+ Frame: 3 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: -0.288787 	 dr_dcoordy: -0.939389 	 dr_dcoordz: -0.184799 
+ Frame: 3 	 j: 5381 	 i: 0 	 r: 0.314529 	 PIV: 0.655011 
+ Frame: 3 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.204682 	 dPELE/dy: -2.041395 	 dPELE/dz: -3.600456 
+ Frame: 3 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.279466 	 dr_dcoordy: 0.473568 	 dr_dcoordz: 0.835244 
+ Frame: 3 	 j: 5 	 i: 1 	 r: 0.518183 	 PIV: 0.086719 
+ Frame: 3 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.916554 	 dPELE/dy: 0.013869 	 dPELE/dz: 0.026284 
+ Frame: 3 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999475 	 dr_dcoordy: -0.015124 	 dr_dcoordz: -0.028662 
+ Frame: 3 	 j: 2945 	 i: 1 	 r: 0.355169 	 PIV: 0.478022 
+ Frame: 3 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 0.986511 	 dPELE/dy: -0.478619 	 dPELE/dz: 4.070068 
+ Frame: 3 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.234038 	 dr_dcoordy: 0.113547 	 dr_dcoordz: -0.965574 
+ Frame: 3 	 j: 5381 	 i: 1 	 r: 0.335557 	 PIV: 0.562877 
+ Frame: 3 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.734666 	 dPELE/dy: -0.726379 	 dPELE/dz: -3.368896 
+ Frame: 3 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.621587 	 dr_dcoordy: 0.165105 	 dr_dcoordz: 0.765748 
+ Frame: 3 	 j: 9755 	 i: 5 	 r: 0.378719 	 PIV: 0.383868 
+ Frame: 3 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.512754 	 dPELE/dy: -3.145603 	 dPELE/dz: 1.362790 
+ Frame: 3 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.403718 	 dr_dcoordy: 0.839486 	 dr_dcoordz: -0.363696 
+ Frame: 3 	 j: 3278 	 i: 5 	 r: 0.370420 	 PIV: 0.415756 
+ Frame: 3 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.562390 	 dPELE/dy: -1.967162 	 dPELE/dz: 3.360701 
+ Frame: 3 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.142938 	 dr_dcoordy: 0.499977 	 dr_dcoordz: -0.854161 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.097364 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -6.074096 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 22.590694 
+dri_drjalpha: -0.479986 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 25.148784 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -19.808941 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.730839 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.320812 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -55.892732 
+dri_drjalpha: 2.925352 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -32.483859 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -64.125760 	 dri_drjbeta: 0.000000 
+i0: 9146	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.879224 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.366425 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -5.991580 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.488128 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.282126 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.238246 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.489637 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 41.005933 
+dri_drjalpha: -7.311124 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 26.414301 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -38.255194 
+dri_drjalpha: 42.415211 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.401383 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.727470 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.167063 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.994903 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.486741 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.408636 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.736969 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.949750 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.651978 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.536469 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.590079 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.650604 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.989059 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.719584 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.993099	0.025003	0.477548	0.654965	0.086709	0.478048	0.562856	0.383838	0.415742	
+layer[1]: Tanh	0.999922	0.999922	0.999922	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001311 -0.001449 0.000007 0.000008 -0.000007 0.000003 0.000006 0.000005 0.000005 
+derivatives = -0.001311 -0.001449 0.000007 0.000008 -0.000007 0.000003 0.000006 0.000005 0.000005 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+ Frame: 4 	 j: 1 	 i: 0 	 r: 0.153127 	 PIV: 0.993036 
+ Frame: 4 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.213108 	 dPELE/dy: -0.166564 	 dPELE/dz: -0.016356 
+ Frame: 4 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.786456 	 dr_dcoordy: 0.614689 	 dr_dcoordz: 0.060360 
+ Frame: 4 	 j: 5 	 i: 0 	 r: 0.643605 	 PIV: 0.025212 
+ Frame: 4 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.227005 	 dPELE/dy: -0.030855 	 dPELE/dz: 0.002732 
+ Frame: 4 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.990818 	 dr_dcoordy: 0.134676 	 dr_dcoordz: -0.011925 
+ Frame: 4 	 j: 9146 	 i: 0 	 r: 0.352838 	 PIV: 0.487887 
+ Frame: 4 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: 1.232581 	 dPELE/dy: 3.995048 	 dPELE/dz: 0.756408 
+ Frame: 4 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: -0.290105 	 dr_dcoordy: -0.940289 	 dr_dcoordz: -0.178031 
+ Frame: 4 	 j: 5381 	 i: 0 	 r: 0.314640 	 PIV: 0.654533 
+ Frame: 4 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.202975 	 dPELE/dy: -2.041295 	 dPELE/dz: -3.602643 
+ Frame: 4 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.278985 	 dr_dcoordy: 0.473402 	 dr_dcoordz: 0.835498 
+ Frame: 4 	 j: 5 	 i: 1 	 r: 0.517599 	 PIV: 0.087257 
+ Frame: 4 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.922631 	 dPELE/dy: 0.013283 	 dPELE/dz: 0.030176 
+ Frame: 4 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999362 	 dr_dcoordy: -0.014388 	 dr_dcoordz: -0.032685 
+ Frame: 4 	 j: 2945 	 i: 1 	 r: 0.356420 	 PIV: 0.472762 
+ Frame: 4 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 0.972798 	 dPELE/dy: -0.482489 	 dPELE/dz: 4.053089 
+ Frame: 4 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.231838 	 dr_dcoordy: 0.114987 	 dr_dcoordz: -0.965934 
+ Frame: 4 	 j: 5381 	 i: 1 	 r: 0.332699 	 PIV: 0.575461 
+ Frame: 4 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.757258 	 dPELE/dy: -0.726053 	 dPELE/dz: -3.358897 
+ Frame: 4 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.625813 	 dr_dcoordy: 0.164792 	 dr_dcoordz: 0.762366 
+ Frame: 4 	 j: 9755 	 i: 5 	 r: 0.378014 	 PIV: 0.386515 
+ Frame: 4 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.526906 	 dPELE/dy: -3.161656 	 dPELE/dz: 1.355669 
+ Frame: 4 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.405694 	 dr_dcoordy: 0.840042 	 dr_dcoordz: -0.360197 
+ Frame: 4 	 j: 3278 	 i: 5 	 r: 0.369707 	 PIV: 0.418563 
+ Frame: 4 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.553954 	 dPELE/dy: -1.977988 	 dPELE/dz: 3.373469 
+ Frame: 4 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.140255 	 dr_dcoordy: 0.500803 	 dr_dcoordz: -0.854122 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.281379 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -4.110291 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 14.257255 
+dri_drjalpha: -0.705803 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 15.520944 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -12.102601 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.296414 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 8.239791 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -66.827597 
+dri_drjalpha: 3.642644 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -36.851462 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -75.199896 	 dri_drjbeta: 0.000000 
+i0: 9146	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.718171 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.339135 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -6.158130 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.448296 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.281297 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.239179 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.503745 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 43.781910 
+dri_drjalpha: -8.003939 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 21.792578 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -35.403897 
+dri_drjalpha: 46.958586 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 8.815605 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.675510 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.219322 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.055477 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.552579 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.414456 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.727087 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.939708 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.635707 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.536955 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.621714 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.781541 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 7.115804 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.793448 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.992999	0.025203	0.487849	0.654565	0.087209	0.472747	0.575458	0.386539	0.418542	
+layer[1]: Tanh	0.999926	0.999926	0.999926	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001251 -0.001383 0.000007 0.000008 -0.000006 0.000003 0.000005 0.000005 0.000004 
+derivatives = -0.001251 -0.001383 0.000007 0.000008 -0.000006 0.000003 0.000005 0.000005 0.000004 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+ Frame: 5 	 j: 1 	 i: 0 	 r: 0.154017 	 PIV: 0.992791 
+ Frame: 5 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dPELE/dx: 0.218848 	 dPELE/dy: -0.171168 	 dPELE/dz: -0.023271 
+ Frame: 5 	 j: 1 	 i: 0 	 PIVELEMENT: 0 	 dr_dcoordx: -0.784938 	 dr_dcoordy: 0.613927 	 dr_dcoordz: 0.083465 
+ Frame: 5 	 j: 5 	 i: 0 	 r: 0.643033 	 PIV: 0.025343 
+ Frame: 5 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dPELE/dx: 0.228345 	 dPELE/dy: -0.031215 	 dPELE/dz: 0.002175 
+ Frame: 5 	 j: 5 	 i: 0 	 PIVELEMENT: 1 	 dr_dcoordx: -0.990741 	 dr_dcoordy: 0.135437 	 dr_dcoordz: -0.009438 
+ Frame: 5 	 j: 9146 	 i: 0 	 r: 0.350595 	 PIV: 0.497454 
+ Frame: 5 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dPELE/dx: 1.253063 	 dPELE/dy: 4.025350 	 dPELE/dz: 0.728385 
+ Frame: 5 	 j: 9146 	 i: 0 	 PIVELEMENT: 2 	 dr_dcoordx: -0.292886 	 dr_dcoordy: -0.940868 	 dr_dcoordz: -0.170250 
+ Frame: 5 	 j: 5381 	 i: 0 	 r: 0.314878 	 PIV: 0.653504 
+ Frame: 5 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dPELE/dx: -1.193926 	 dPELE/dy: -2.040411 	 dPELE/dz: -3.609466 
+ Frame: 5 	 j: 5381 	 i: 0 	 PIVELEMENT: 3 	 dr_dcoordx: 0.276709 	 dr_dcoordy: 0.472893 	 dr_dcoordz: 0.836543 
+ Frame: 5 	 j: 5 	 i: 1 	 r: 0.516586 	 PIV: 0.088197 
+ Frame: 5 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dPELE/dx: 0.933314 	 dPELE/dy: 0.013497 	 dPELE/dz: 0.034216 
+ Frame: 5 	 j: 5 	 i: 1 	 PIVELEMENT: 4 	 dr_dcoordx: -0.999224 	 dr_dcoordy: -0.014450 	 dr_dcoordz: -0.036633 
+ Frame: 5 	 j: 2945 	 i: 1 	 r: 0.357510 	 PIV: 0.468200 
+ Frame: 5 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dPELE/dx: 0.958542 	 dPELE/dy: -0.487205 	 dPELE/dz: 4.038011 
+ Frame: 5 	 j: 2945 	 i: 1 	 PIVELEMENT: 5 	 dr_dcoordx: -0.229387 	 dr_dcoordy: 0.116592 	 dr_dcoordz: -0.966327 
+ Frame: 5 	 j: 5381 	 i: 1 	 r: 0.330159 	 PIV: 0.586654 
+ Frame: 5 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dPELE/dx: -2.776599 	 dPELE/dy: -0.725417 	 dPELE/dz: -3.344277 
+ Frame: 5 	 j: 5381 	 i: 1 	 PIVELEMENT: 6 	 dr_dcoordx: 0.630071 	 dr_dcoordy: 0.164613 	 dr_dcoordz: 0.758890 
+ Frame: 5 	 j: 9755 	 i: 5 	 r: 0.377859 	 PIV: 0.387100 
+ Frame: 5 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dPELE/dx: 1.536845 	 dPELE/dy: -3.167282 	 dPELE/dz: 1.341370 
+ Frame: 5 	 j: 9755 	 i: 5 	 PIVELEMENT: 7 	 dr_dcoordx: -0.407939 	 dr_dcoordy: 0.840721 	 dr_dcoordz: -0.356052 
+ Frame: 5 	 j: 3278 	 i: 5 	 r: 0.369095 	 PIV: 0.420986 
+ Frame: 5 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dPELE/dx: -0.541096 	 dPELE/dy: -1.991717 	 dPELE/dz: 3.382557 
+ Frame: 5 	 j: 3278 	 i: 5 	 PIVELEMENT: 8 	 dr_dcoordx: 0.136554 	 dr_dcoordy: 0.502641 	 dr_dcoordz: -0.853642 
+i0: 1	 i1:0
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.369721 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.199182 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 10.440440 
+dri_drjalpha: -0.810559 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 11.095492 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -8.557743 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.518296 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 11.387448 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -85.423307 
+dri_drjalpha: 4.783287 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -44.344628 	 dri_drjbeta: 0.000000 
+dri_drjalpha: -94.020744 	 dri_drjbeta: 0.000000 
+i0: 9146	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: 1.537253 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 3.294175 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -6.361009 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:0
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.438685 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.305329 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -3.251578 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.532290 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: 43.977880 
+dri_drjalpha: -8.123380 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 18.539874 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -32.738217 
+dri_drjalpha: 48.051915 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 11.617852 	 dri_drjbeta: 0.000000 
+i0: 2945	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -8.601129 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 4.270040 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.120226 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 5381	 i1:1
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.593707 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 4.414254 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -1.721948 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.929129 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+i0: 9755	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.616252 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -2.535142 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 2.660646 
+i0: 3278	 i1:5
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 6.974796 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 7.303262 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: 0.000000 
+dri_drjalpha: 0.000000 	 dri_drjbeta: -0.897679 
+dri_drjalpha: 3.000000 	 dri_drjbeta: 3.000000 
+output_of_each_layer = 
+layer[0]: input 	0.992799	0.025303	0.497450	0.653465	0.088209	0.468247	0.586659	0.387139	0.420942	
+layer[1]: Tanh	0.999929	0.999929	0.999929	
+layer[2]: Tanh	0.999329	0.999329	
+
+derivatives = -0.001204 -0.001331 0.000007 0.000008 -0.000006 0.000003 0.000005 0.000005 0.000004 
+derivatives = -0.001204 -0.001331 0.000007 0.000008 -0.000006 0.000003 0.000005 0.000005 0.000004 
+
+ 
+ Action label :@7 
+
+
+ 
+ Action label :@6 
+
+
+ 
+ Action label :restraint 
+
+
+ 
+ Action label :@4 
+
+
+ 
+ Action label :@3 
+
+
+ 
+ Action label :ann 
+
+
+ 
+ Action label :@1 
+
+
+ 
+ Action label :piv 
+
+
+Writing final coordinates.
+
+Back Off! I just backed up plumed-test-md.gro to ./#plumed-test-md.gro.6#
+step 5
+               Core t (s)   Wall t (s)        (%)
+       Time:       11.462        2.292      500.0
+                 (ns/day)    (hour/ns)
+Performance:        0.452       53.065
+
+GROMACS reminds you: "Fly to the Court of England and Unfold" (Macbeth, Act 3, Scene 6, William Shakespeare)
+
