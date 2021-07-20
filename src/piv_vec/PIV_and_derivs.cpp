@@ -996,6 +996,11 @@ void PIV::calculate()
           //Integer sorting ... faster!
           //Transforming distances with the Switching function + real to integer transformation
           int Vint=int(sfs[j].calculate(ddist.modulo()*Fvol, df)*double(Nprec-1)+0.5);
+          // SD
+          // double temp = 0;
+          // printf(" Frame: %d \t j: %d \t i: %d \t r: %f \t: %f \n", getStep(), i0, i1,  ddist.modulo()*Fvol, sfs[j].calculate(ddist.modulo()*Fvol, temp));
+          //
+
           //Integer transformed distance values as index of the Ordering Vector OrdVec
           OrdVec[Vint]+=1;
           //Keeps track of atom indices for force and virial calculations
@@ -1278,6 +1283,12 @@ void PIV::calculate()
         ds_array[PIV_element] = ds_element;
         // Create 1x3 vector of (dr/dx,dr/dy,dr/dz) --NH
         Vector dr_dcoord = distance/dm;
+        // SD
+        //double temp = 0;
+        //printf(" Frame: %d \t j: %d \t i: %d \t r: %f \t PIV: %f \n", getStep(), i0, i1,  dm*Fvol, sfs[j].calculate(dm*Fvol, temp));
+        //printf(" Frame: %d \t j: %d \t i: %d \t PIVELEMENT: %d \t dPELE/dx: %f \t dPELE/dy: %f \t dPELE/dz: %f \n", getStep(), i0, i1, PIV_element, ds_element*dr_dcoord[0], ds_element*dr_dcoord[1], ds_element*dr_dcoord[2]);
+        //printf(" Frame: %d \t j: %d \t i: %d \t PIVELEMENT: %d \t dr_dcoordx: %f \t dr_dcoordy: %f \t dr_dcoordz: %f \n", getStep(), i0, i1, PIV_element, dr_dcoord[0], dr_dcoord[1], dr_dcoord[2]);
+        //
         //Vector tmpder = ds*distance;
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
