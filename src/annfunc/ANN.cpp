@@ -21,15 +21,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+#include "colvar/Colvar.h"                                                                                              
+//#include "colvar/ActionRegister.h"                                                                                      
+//#include "core/PlumedMain.h"                                                                                            
+#include "core/ActionWithVirtualAtom.h"                                                                                 
+#include "tools/NeighborList.h"                                                                                         
+#include "tools/SwitchingFunction.h"                                                                                    
+#include "tools/PDB.h"                                                                                                  
+#include "tools/Pbc.h"                                                                                                  
+#include "tools/Stopwatch.h"                                                                                            
+                                                                                                                        
+#include "core/PlumedMain.h" // -- SD
 #include "function/Function.h"
 #include "function/ActionRegister.h"
+#include "core/ActionSet.h" // -- SD
 #include "cassert"
+
+#include "piv_vec/PIV.h" // -- SD
 
 #include <string>
 #include <cmath>
 #include <iostream>
-#include <fstream> //-- SD
-// #include <stdio.h>
+#include <fstream> // -- SD
+#include <stdio.h> // -- SD
 
 using namespace std;
 
@@ -102,7 +116,10 @@ private:
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
   vector<vector<double> > piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
-  std::string piv_deriv_file; // -- SD
+  //std::string piv_deriv_file; // -- SD
+  //bool piv_input; // -- SD
+  //piv::PIV* pivclass; // -- SD
+  std::string piv_action_label;
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -127,6 +144,8 @@ void ANN::registerKeywords( Keywords& keys ) {
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
   keys.add("optional", "PIV_DERIV_FILE", 
            "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
+  //keys.addFlag("PIVInput", false, "Flag to check if input is PIV"); // -- SD
+  keys.add("optional", "PIVLABEL", "Label name of PIV"); // -- SD
   // since v2.2 plumed requires all components be registered
   keys.addOutputComponent("node", "default", "components of ANN outputs");
 }
@@ -179,57 +198,81 @@ ANN::ANN(const ActionOptions&ao):
 
   for (unsigned j = 0; j < piv_deriv.size(); j++){
     for (unsigned i = 0; i < piv_deriv[j].size(); i++){
-      piv_deriv[j][j] = 1.0;
+      piv_deriv[j][i] = 1.0;
     }
   }
 
-  parse("PIV_DERIV_FILE", piv_deriv_file);
-  if(piv_deriv_file.length()!=0){
-    ifstream fp(piv_deriv_file);
+  //parse("PIV_DERIV_FILE", piv_deriv_file);
+  
+  //parseFlag("PIVInput", piv_input);
+  parse("PIVLABEL", piv_action_label);
 
-    if (fp) {
-      //read derivatives to vector
-      log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
-      for (int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++) {
-        for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++) {
-          fp >> piv_deriv[npiv_size][dpiv_size];
-          if (!fp) {
-            error("Error while reading PIV derivatives file");
-          }
-        }
-      }
+  //if(piv_input){
+  //  std::string piv_action_label; 
+  //  parse("PIVLABEL", piv_action_label);
+  //  pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );    
+    //if( pivclass ) {
+    //   // error( piv_action_label + " is emtpy.");            
+    //  addDependency( pivclass ); 
+    //  auto name = pivclass->getLabel();
+    //  printf("\n\n\n\n Name: %s \n\n\n\n", name.c_str());
+    //  piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv); 
+    //}
+  //}
 
-      //double piv_deriv_element = 0.0;
-      //int ncountPIVelements = 0, dcountPIVelements = 0;
-      //while (fp >> piv_deriv_element){
-      //  piv_deriv[ncountPIVelements][dcountPIVelements] = piv_deriv_element;
-      //  dcountPIVelements += 1;
-      //  if (piv_deriv_element == "") {
-      //    ncountPIVelements += 1;
-      //  }
-      //  //if (countPIVelements > num_nodes[0]){
-      //  //    error("Size of piv derivatives file > number of nodes in the input layer.");
-      //  //}
-      //}
-      //if (countPIVelements < num_nodes[0]){
-      //  error("Size of piv derivatives file < number of nodes in the input layer");
-      //}
-      fp.close();
-      
-      #ifdef DEBUG_PIVFILE
-        cout << "PIV Derivative file: ";
-        for(int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++){
-          for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++){
-            cout << piv_deriv[npiv_size][dpiv_size] << " ";
-          } 
-          cout << endl;
-        }
-      #endif
+  //for (unsigned j = 0; j < piv_deriv.size(); j++){                                                                      
+  //  for (unsigned i = 0; i < piv_deriv[j].size(); i++){                                                                 
+  //    printf("piv_deriv: %f \t", piv_deriv[j][i]);
+  //  }
+  //  printf("\n");    
+  //}
 
-    } else {
-      error("Error PIV derivatives file seems to be not defined.");
-    }
-  }
+  //if(piv_deriv_file.length()!=0){
+  //  ifstream fp(piv_deriv_file);
+
+  //  if (fp) {
+  //    //read derivatives to vector
+  //    log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
+  //    for (int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++) {
+  //      for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++) {
+  //        fp >> piv_deriv[npiv_size][dpiv_size];
+  //        if (!fp) {
+  //          error("Error while reading PIV derivatives file");
+  //        }
+  //      }
+  //    }
+
+  //    //double piv_deriv_element = 0.0;
+  //    //int ncountPIVelements = 0, dcountPIVelements = 0;
+  //    //while (fp >> piv_deriv_element){
+  //    //  piv_deriv[ncountPIVelements][dcountPIVelements] = piv_deriv_element;
+  //    //  dcountPIVelements += 1;
+  //    //  if (piv_deriv_element == "") {
+  //    //    ncountPIVelements += 1;
+  //    //  }
+  //    //  //if (countPIVelements > num_nodes[0]){
+  //    //  //    error("Size of piv derivatives file > number of nodes in the input layer.");
+  //    //  //}
+  //    //}
+  //    //if (countPIVelements < num_nodes[0]){
+  //    //  error("Size of piv derivatives file < number of nodes in the input layer");
+  //    //}
+  //    fp.close();
+  //    
+  //    #ifdef DEBUG_PIVFILE
+  //      cout << "PIV Derivative file: ";
+  //      for(int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++){
+  //        for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++){
+  //          cout << piv_deriv[npiv_size][dpiv_size] << " ";
+  //        } 
+  //        cout << endl;
+  //      }
+  //    #endif
+
+  //  } else {
+  //    error("Error PIV derivatives file seems to be not defined.");
+  //  }
+  //}
 
   if(getNumberOfArguments() != num_nodes[0]) {
     error("Number of arguments is wrong");
@@ -413,7 +456,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                    * coeff[jj][kk][mm] \
                                                    * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
             } else {
-              if(piv_deriv_file.length()!=0){
+              if(piv_action_label.length()!=0){
                 double weighted_piv_deriv_sum = 0.0;
                 // jj is 0
                 for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
@@ -478,6 +521,26 @@ void ANN::calculate() {
   for (int ii = 0; ii < num_nodes[0]; ii ++) {
     input_layer_data[ii] = getArgument(ii);
   }
+
+  //SD
+  if(piv_action_label.length()!=0){
+    auto pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );
+    if( pivclass ) {                                                                                                    
+      addDependency( pivclass ); // Is this required?
+      auto name = pivclass->getLabel();                                                                                 
+      //printf("\n\n\n\n Name: %s \n\n\n\n", name.c_str());                                                               
+      piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv);                                                                      
+    }
+  }  
+
+  // SD
+  //printf("Timestep: %d:\n", getStep());
+  //for (unsigned j = 0; j < piv_deriv.size(); j++){
+  //  for (unsigned i = 0; i < piv_deriv[j].size(); i++){
+  //    printf("piv_deriv: %f \t", piv_deriv[j][i]);
+  //  }
+  //  printf("\n");
+  //}
 
   calculate_output_of_each_layer(input_layer_data);
   vector<vector<double> > derivatives_of_each_layer;
