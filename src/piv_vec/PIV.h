@@ -84,7 +84,8 @@ private:
   Tensor m_virial;
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
-  int writestride;
+  bool writepivtraj;
+  int writepivstride, writeannstride;
 public:
   static void registerKeywords( Keywords& keys );                                                                       
   explicit PIV(const ActionOptions&); //ao):
