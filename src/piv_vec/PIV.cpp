@@ -24,6 +24,7 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include "tools/Pbc.h"
 #include "tools/Stopwatch.h"
 
+// -- SD header file for both ANN function and PIV
 #include "PIV.h"
 
 #include <string>
@@ -184,6 +185,7 @@ When using PIV please cite \cite pipolo2017navigating .
 */
 //+ENDPLUMEDOC
 
+// -- SD Moved the following class declaration to header file.
 //class PIV      : public Colvar
 //{
 //private:
@@ -266,7 +268,11 @@ void PIV::registerKeywords( Keywords& keys )
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
   keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
-  keys.add("optional","WRITESTRIDE","STRIDE to write PIV_representation and ANN_derivative files.");
+  // -- SD Flag for writing PIV values in a single file when using plumed driver.
+  keys.addFlag("WRITEPIVTRAJ",false,"Flag to enable or disable writing PIV_representation when using plumed driver.");
+  // -- SD Variables to control frequency of writing PIV values and ANN PIV derivatives during simulation.
+  keys.add("optional","WRITEPIVSTRIDE","STRIDE to write PIV_representation.");
+  keys.add("optional","WRITEANNSTRIDE","STRUDE to write ANN_derivative files.");
   componentsAreNotOptional(keys);
   // Changing "COMPONENTS" to "default" and slightly modifying the name. Added components for ANN_SUM_DERIV
   keys.addOutputComponent("ELEMENT", "default", "Elements of the PIV block. The position in the N choose 2 interactions (i) and the neighbor in the neighbor list (j) is given as PIV-i-j.");
@@ -279,7 +285,6 @@ PIV::PIV(const ActionOptions&ao):
   pbc(true),
   serial(false),
   timer(false),
-
   NL_const_size(0),
   updatePIV(1),
   Nprec(1000),
@@ -314,8 +319,14 @@ PIV::PIV(const ActionOptions&ao):
   test(false),
   CompDer(false),
   com(false),
-  writestride(1),
-  cart2piv(false)
+  // SD -- local variables corresponding to user defined flags.
+  writepivtraj(false),
+  writepivstride(1),
+  writeannstride(1),
+  cart2piv(false),
+  // SD -- used in prepare function.
+  invalidateList(true),
+  firsttime(true)
 {
   log << "Starting PIV Constructor\n";
 
@@ -448,6 +459,7 @@ PIV::PIV(const ActionOptions&ao):
     Pind0size=NLsize;
   }
   std:: vector<unsigned> Pind0(Pind0size);
+  // SD -- following resize of COM arrays to NLsize don't make sense to me. Should it be resnum? We don't use COM anyway.
   // If COM resize important arrays
   comatm.resize(NLsize);
   if(com) {
@@ -455,9 +467,11 @@ PIV::PIV(const ActionOptions&ao):
     compos.resize(NLsize);
     fmass.resize(NLsize,0.);
   }
+  // SD -- following total atoms don't make sense to me.
   log << "Total COM/Atoms: " << Natm*resnum << " \n";
   // Build lists of Atoms/COMs for NLists
   //   comatm filled also for non_COM calculation for analysis purposes
+  unsigned countIndex = 0;
   for (unsigned j=0; j<Natm; j++) {
     unsigned oind;
     for (unsigned i=0; i<Pind0.size(); i++) {
@@ -489,9 +503,13 @@ PIV::PIV(const ActionOptions&ao):
       if(Pname==atype[j]) {
         if(Pind0[Pind]==0) {
           // adding the atomnumber to the atom/COM list for pairs
-          Plist[j].push_back(anum);
+          // SD local variable of type AtomNumber. Its value is set using countIndex.
+          AtomNumber ati;
+          ati.setIndex(countIndex);
+          Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
           Pind0[Pind]=aind+1;
           oind=Pind;
+          countIndex += 1;
         }
         // adding the atomnumber to list of atoms for every COM/Atoms
         comatm[Pind0[Pind]-1].push_back(anum);
@@ -511,11 +529,25 @@ PIV::PIV(const ActionOptions&ao):
     log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
   }
 
-  // This is to build the list with all the atoms
+  // SD This is to build the list with the atoms required for PIV.
   std:: vector<AtomNumber> listall;
-  for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
-    listall.push_back(mypdb.getAtomNumbers()[i]);
-  }
+  for (unsigned j=0; j<Natm; j++) {
+    for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
+      // SD --- including only user defined atom types;
+      AtomNumber at_num = mypdb.getAtomNumbers()[i];                                                                        
+      // ResidueName/Atomname associated to atom                                                                        
+      string at_name = mypdb.getAtomName(at_num);                                                                             
+      if(at_name == atype[j]) {
+        // -- SD listall should contain the actual atom numbers in the PDB file.
+        listall.push_back(at_num);
+      }                                                                                                               
+    }                                                                                                                 
+  }    
+
+  // SD previously, listall has all the atoms in the system.
+  //for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {                                                          
+  //  listall.push_back(mypdb.getAtomNumbers()[i]);                                                                     
+  //}
 
   // PIV blocks and Neighbour Lists
   Nlist=0;
@@ -541,9 +573,15 @@ PIV::PIV(const ActionOptions&ao):
     //if(scaling.size()!=getNumberOfArguments() && scaling.size()!=0) error("not enough values for SFACTOR");
   }
 
-  // Added STRIDE -- SD
-  if(keywords.exists("WRITESTRIDE")) { 
-    parse("WRITESTRIDE", writestride);
+  // Added STRIDE to write PIV representation and ANN sum derivatives -- SD
+  if(keywords.exists("WRITEPIVTRAJ")){
+      parseFlag("WRITEPIVTRAJ",writepivtraj);
+  }
+  if(keywords.exists("WRITEPIVSTRIDE")) { 
+    parse("WRITEPIVSTRIDE",writepivstride);
+  }
+  if(keywords.exists("WRITEANNSTRIDE")){
+    parse("WRITEANNSTRIDE",writeannstride);
   }
 
   // Neighbour Lists option
@@ -566,6 +604,7 @@ PIV::PIV(const ActionOptions&ao):
       nl_cut[j]=nl_cut[j]+nl_skin[j];
     }
     log << "Creating Neighbor Lists \n";
+    // SD -- nlall is a neighbor list created using list all. nl_cut[0] and nl_st[0] are probably not needed.
     // WARNING: is nl_cut meaningful here?
     nlall= new NeighborList(listall,true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
     if(com) {
@@ -583,14 +622,20 @@ PIV::PIV(const ActionOptions&ao):
         ncnt+=1;
       }
     }
+
     // Cross blocks AB, AC, BC, ...
     if(cross) {
+
+      // -- SD No changes here. nl depends on Plist for each j. Plist for each j = [0, Num of atoms of type j]
+      // -- SD example: if j=0 corresponds to C1, Plist[0] = [0] because there is only one C1; if is OW, it is [0, 1, 2, ... Nwaters]
       for (unsigned j=0; j<Natm; j++) {
         for (unsigned i=j+1; i<Natm; i++) {
           nl[ncnt]= new NeighborList(Plist[i],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[ncnt],nl_st[ncnt]);
+          //printf("\n\n\n nl[%d]: %d \n", ncnt, nl[ncnt]->getFullAtomList().size());
           ncnt+=1;
         }
       }
+
     }
   } else {
     log << "WARNING: Neighbor List not activated this has not been tested!!  \n";
@@ -716,6 +761,9 @@ PIV::PIV(const ActionOptions&ao):
     for(unsigned i=0; i<nl[j]->size(); i++) {
       unsigned i0=(nl[j]->getClosePairAtomNumber(i).first).index();
       unsigned i1=(nl[j]->getClosePairAtomNumber(i).second).index();
+
+      //printf("i0: %d \t i1: %d \n", i0, i1);
+
       //calculate/get COM position of centers i0 and i1
       Vector Pos0,Pos1;
       if(com) {
@@ -784,6 +832,7 @@ PIV::PIV(const ActionOptions&ao):
           }
       }
     }
+    //printf("step:%d \t natm: %d \t Nlconstsize: %d \t total count: %d\n",getStep(), Natm, NL_const_size, total_count);
     //for(int j = 0; j < total_count; j++) {
     //  for(int i = 0; i < total_count; i++) {
     //    string comp = "ANNSUMDERIV-" + to_string(j) + "-" + to_string(i);
@@ -792,10 +841,15 @@ PIV::PIV(const ActionOptions&ao):
     //  }
     //}
     requestAtoms(nlall->getFullAtomList());
+
+    //printf("\n\n\n Num of Atoms: %d \t total_count: %d \n\n\n", getNumberOfAtoms(), total_count);
+    //printf("\n\n\n Num of Atoms in List: %d\n\n\n", listall.size());
+
     ann_deriv.resize(getNumberOfAtoms());
     for (int i = 0; i < getNumberOfAtoms(); i++) {
       ann_deriv[i].resize(total_count);
     }
+    ds_array.resize(total_count);
   } else {
     addValueWithDerivatives();
     requestAtoms(nlall->getFullAtomList());
@@ -820,24 +874,32 @@ PIV::~PIV()
   delete nlall;
 }
 
-// SD
-std::vector<vector<double>> PIV::get_ann_sum_derivative( ) { //vector<vector<double>>&ann_piv_deriv_arr  ) {
-// 
-//  //printf("\n\n\n GHsdasd \n\n\n\n");
-// 
+
+// SD request atoms in every frame.
+void PIV::prepare() {
+  if(nlall->getStride()>0) {
+    if(firsttime || (getStep()%nlall->getStride()==0)) {
+      requestAtoms(nlall->getFullAtomList());
+      invalidateList=true;
+      firsttime=false;
+    } else {
+      requestAtoms(nlall->getReducedAtomList());
+      invalidateList=false;
+      if(getExchangeStep()) error("Neighbor lists should be updated on exchange steps - choose a NL_STRIDE which divides the exchange stride!");
+    }
+    if(getExchangeStep()) firsttime=true;
+  }
+}
+
+
+
+// SD function to return ANN PIV derivatives to ANN code
+std::vector<vector<double>> PIV::get_ann_sum_derivative( ) {
+
   std::vector<vector<double>> ann_piv_deriv_arr = ANN_piv_deriv; 
-//
-//  //for(unsigned j=0; j<ann_piv_deriv_arr.size(); j++){                                                                   
-//  //  for(unsigned i=0; i<ann_piv_deriv_arr[j].size(); i++){                                                              
-//  //     printf("%8.6f\t", ann_piv_deriv_arr[j][i]);                                                      
-//  //  }                                                                                                               
-//  //  printf("\n");                                                                                  
-//  //}
-//  //ann_piv_deriv_arr = ANN_piv_deriv; 
-//  
+
   return ann_piv_deriv_arr;
-//
-//  //return ANN_piv_deriv; //ann_piv_deriv_arr;
+
 }
 
 void PIV::calculate()
@@ -1012,6 +1074,7 @@ void PIV::calculate()
         for(unsigned i=rank; i<nl[j]->size(); i+=stride) {
           unsigned i0=(nl[j]->getClosePairAtomNumber(i).first).index();
           unsigned i1=(nl[j]->getClosePairAtomNumber(i).second).index();
+          //printf("i0: %d \t i1: %d \n", i0, i1);
           Vector Pos0,Pos1;
           if(docom) {
             Pos0=compos[i0];
@@ -1029,10 +1092,16 @@ void PIV::calculate()
           //Integer sorting ... faster!
           //Transforming distances with the Switching function + real to integer transformation
           int Vint=int(sfs[j].calculate(ddist.modulo()*Fvol, df)*double(Nprec-1)+0.5);
-          // SD
+          // SD for debugging.
           // double temp = 0;
           // printf(" Frame: %d \t j: %d \t i: %d \t r: %f \t: %f \n", getStep(), i0, i1,  ddist.modulo()*Fvol, sfs[j].calculate(ddist.modulo()*Fvol, temp));
           //
+          // Enables low precision with standard PIV sizes.
+          if(cart2piv) {
+            if(Vint == 0) {
+              Vint = 1;
+            }
+          }
 
           //Integer transformed distance values as index of the Ordering Vector OrdVec
           OrdVec[Vint]+=1;
@@ -1102,7 +1171,7 @@ void PIV::calculate()
           // This is the tricky serial step, to assemble together PIV and atom-pair info from head-tail big vectors
           // Loop before on l and then on i would be better but the allgather should be modified
           // Loop on blocks
-          //for(unsigned m=0;m<Nlist;m++) {
+          //for(unsigned m=0;m<Nlist;m++) 
           // Loop on Ordering Vector size excluding zeros (i=1)
           if(timer) stopwatch.stop("2 Sort cPIV");
           if(timer) stopwatch.start("3 Reconstruct cPIV");
@@ -1195,17 +1264,26 @@ void PIV::calculate()
 
     //int STRIDE = 1000;                                                        
     FILE *piv_rep_file = NULL;
-    if (getStep() % writestride == 0) {                                                                                      
+    if (getStep() % writepivstride == 0) {                                                                                      
       string piv_rep_fileName = "PIV_representation_" + to_string(getStep()) + ".dat";                                    
       piv_rep_file = fopen(piv_rep_fileName.c_str(), "w+"); 
     }
+   
+    FILE *piv_rep_file_traj = NULL;
+    if (writepivtraj) {
+      string piv_rep_fileName_traj = "PIV_representation_traj.dat";
+      piv_rep_file_traj = fopen(piv_rep_fileName_traj.c_str(), "a");
+    }
 
+    // SD countLoopLimit for debugging.
+    int countLoopLimit = 0;
     for(unsigned j=0; j<Nlist; j++) {
       bool dosorting=dosort[j];
       unsigned limit=0;
       // Set limit to size of PIV block. Solute-solute blocks will be 1 (for tetracosane) 
       // and much larger for solute-solvent blocks (likely hundreds)
       limit = cPIV[j].size();
+      //printf("limit: %d\t", limit);
       // Allow for non-constant block sizes if desired
       if(NL_const_size > 0) {
         // Solute-solvent blocks have more neighbors than necessary so that padding is not necessary.
@@ -1216,22 +1294,40 @@ void PIV::calculate()
         if(limit > NL_const_size) {
           start_val = limit - NL_const_size;
         }
-        if (getStep() % writestride == 0) {
+        if (writepivtraj) {
           for(unsigned i=start_val; i<limit; i++) {
-            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+            fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
+          }
+        }
+        if ( getStep() % writepivstride == 0) {
+          for(unsigned i=start_val; i<limit; i++) {
+            fprintf(piv_rep_file, "%8.6f\t", cPIV[j][i]);
+            countLoopLimit += 1;
           }
         }
       } else {
         // Prints out in the same PIV block element format as TEST
-        if (getStep() % writestride == 0) {
+        if (writepivtraj) {
           for(unsigned i=0; i<limit; i++) {
-            fprintf(piv_rep_file, "%8.6f\n", cPIV[j][i]);
+            fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
+          } 
+        }
+        if ( getStep() % writepivstride == 0) {
+          for(unsigned i=0; i<limit; i++) {
+            fprintf(piv_rep_file, "%8.6f\t", cPIV[j][i]);
+            countLoopLimit += 1;
           }
         }
       }
     }
-    if (getStep() % writestride == 0) {
-      fprintf(piv_rep_file, "END OF FRAME: %d \n", getStep());
+    // SD for debugging
+    //printf("\nEnd limit: %d\n", countLoopLimit);
+    if (writepivtraj) {
+      fprintf(piv_rep_file_traj, "\n#END OF FRAME\n");
+      fclose(piv_rep_file_traj);
+    }
+    if ( getStep() % writepivstride == 0) {
+      fprintf(piv_rep_file, "\n#END OF FRAME: %d \n", getStep());
       fclose(piv_rep_file);
     }
   }
@@ -1253,7 +1349,7 @@ void PIV::calculate()
       }
     }
     // resize vectors to the appropriate sizes and set starting values to zero --NH
-    ds_array.resize(ann_deriv[0].size());
+    //ds_array.resize(ann_deriv[0].size());
     //ANN_sum_array.resize(ds_array.size());
     ANN_piv_deriv.resize(ds_array.size());
     //for(unsigned j=0; j<ANN_sum_array.size(); j++) {
@@ -1275,6 +1371,7 @@ void PIV::calculate()
         }
       }
     }
+    //unsigned countLoop=0;
     unsigned PIV_element=0;
     for(unsigned j=0; j<Nlist; j++) {
       // Same loop as used/described above
@@ -1314,14 +1411,18 @@ void PIV::calculate()
         // Create the ds_array one element at a time --NH
         ds_element = scaling[j]*Fvol*Fvol*dfunc*dm;
         ds_array[PIV_element] = ds_element;
+
+
+        //printf("ds_array: %8.10f\n", ds_array[PIV_element]);
+        //countLoop += 1;
         // Create 1x3 vector of (dr/dx,dr/dy,dr/dz) --NH
         Vector dr_dcoord = distance/dm;
-        // SD
+        // SD for debugging
         //double temp = 0;
         //printf(" Frame: %d \t j: %d \t i: %d \t r: %f \t PIV: %f \n", getStep(), i0, i1,  dm*Fvol, sfs[j].calculate(dm*Fvol, temp));
         //printf(" Frame: %d \t j: %d \t i: %d \t PIVELEMENT: %d \t dPELE/dx: %f \t dPELE/dy: %f \t dPELE/dz: %f \n", getStep(), i0, i1, PIV_element, ds_element*dr_dcoord[0], ds_element*dr_dcoord[1], ds_element*dr_dcoord[2]);
         //printf(" Frame: %d \t j: %d \t i: %d \t PIVELEMENT: %d \t dr_dcoordx: %f \t dr_dcoordy: %f \t dr_dcoordz: %f \n", getStep(), i0, i1, PIV_element, dr_dcoord[0], dr_dcoord[1], dr_dcoord[2]);
-        //
+        
         //Vector tmpder = ds*distance;
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
@@ -1339,28 +1440,34 @@ void PIV::calculate()
       }
     }
     // The file "dri_drj_values.dat" was used for debugging and has since been commented out --NH
+    //printf("Count loop: %d \t ds_array size: %d \n", countLoop, ds_array.size());
     
     double dri_drj = 0.;
     //FILE *dri_drj_file = NULL;
     //dri_drj_file = fopen("dri_drj_values.dat", "a");
 
     //This loops over the two PIV element sets (dv_d and dv_n) --NH
-    //for(unsigned j=0; j<ANN_sum_array.size(); j++) {
+    //for(unsigned j=0; j<ANN_sum_array.size(); j++) 
     for(unsigned j=0; j<ANN_piv_deriv.size(); j++){
       unsigned i0_j = PIV_Pair0[j];
       unsigned i1_j = PIV_Pair1[j];
-      //for(unsigned i=0; i<ANN_sum_array.size(); i++) {
+      //for(unsigned i=0; i<ANN_sum_array.size(); i++) 
         for(unsigned i=0; i<ANN_piv_deriv[j].size(); i++){
         double dri_drjalpha=0.;
         double dri_drjbeta=0.;
         for(unsigned k=0; k<3; k++) {
           // This is where the vectors are summed into a scalar --NH
           // We will likely need to address the possibility of a zero term in the denominator of either term --NH
-          dri_drjalpha +=(double) dr_dxyz_array[i0_j][i][k] / (double) dr_dxyz_array[i0_j][j][k];
-          dri_drjbeta +=(double) dr_dxyz_array[i1_j][i][k] / (double) dr_dxyz_array[i1_j][j][k];
+          if ( dr_dxyz_array[i0_j][j][k] != 0.0 ){ 
+            dri_drjalpha +=(double) dr_dxyz_array[i0_j][i][k] / (double) dr_dxyz_array[i0_j][j][k];
+          }
+          if ( dr_dxyz_array[i1_j][j][k] != 0.0) {
+            dri_drjbeta +=(double) dr_dxyz_array[i1_j][i][k] / (double) dr_dxyz_array[i1_j][j][k];
+          }
         }  
         dri_drj = dri_drjalpha + dri_drjbeta;
         //fprintf(dri_drj_file, "%8.6f\n", dri_drj);
+        //printf("ds_array: %8.10f\n", ds_array[j]);
         // Calculate ANN_sum_array from sub-arrays --NH 
         //ANN_sum_array[j] += ds_array[i]*dri_drj/ds_array[j];
         ANN_piv_deriv[j][i] = ds_array[i]*dri_drj/ds_array[j];
@@ -1378,7 +1485,7 @@ void PIV::calculate()
     //fprintf(ANN_sum_file, "END OF FRAME\n");
     //fclose(ANN_sum_file);
     //int STRIDE = 1000;
-    if (getStep() % writestride == 0) {
+    if (getStep() % writeannstride == 0) {
       FILE *ANN_deriv_file = NULL;
       string ANN_deriv_fileName = "ANN_deriv_file_" + to_string(getStep()) + ".dat";
       ANN_deriv_file = fopen(ANN_deriv_fileName.c_str(), "w+"); // Question: Should this be w+; a works for trajectories.
@@ -1391,6 +1498,7 @@ void PIV::calculate()
       fprintf(ANN_deriv_file, "END OF FRAME: %d \n", getStep());
       fclose(ANN_deriv_file);
     }
+    // SD for debugging get_ann_sum_derivative function.
     //get_ann_sum_derivative( ); //ANN_piv_deriv);
     //for (int j = 0; j < ANN_piv_deriv.size(); j++) {
     //  for(int i = 0; i < ANN_piv_deriv[j].size(); i++) {
@@ -1407,8 +1515,8 @@ void PIV::calculate()
     //fprintf(atom1_file, "END OF FRAME\n");
     //fclose(atom1_file);
     
-    //log.printf("cPIV size: %10d\n", cPIV.size());
-    if (!serial && comm.initialized()) {
+    log.printf("cPIV size: %10d\n", cPIV.size());
+    if (!serial && comm.initialized() ) {
       int count = 0;
       for(unsigned j=0; j<Nlist; j++) {
           for(unsigned i=0; i<cPIV[j].size(); i++) {
@@ -1416,12 +1524,29 @@ void PIV::calculate()
           }
       }
       
-      //log.printf("cPIV total count: %10d\n", count);
-      
       comm.Barrier();
-      comm.Sum(&cPIV[0][0],count);
-      // Question serial/parallel tests
-      if(!ann_deriv.empty()) comm.Sum(&ann_deriv[0][0][0],3*ann_deriv.size()*ann_deriv[0].size());
+      // SD -- This probably works because cPIV[j] size is variable for each j.
+      for (unsigned j=0; j< Nlist; j++) {
+        for (unsigned k=0; k<cPIV[j].size(); k++) {
+          comm.Sum(cPIV[j][k]);
+          cPIV[j][k] /= comm.Get_size();
+        }
+      }
+      //comm.Sum(&cPIV[0][0], count);
+
+      // SD -- This probably works because comm.Sum cannot handle 3D vectors.
+      if(!ann_deriv.empty()) {
+        for (unsigned i=0;  i<ann_deriv.size(); i++) {
+          for (unsigned j=0; j<ann_deriv[j].size(); j++) {
+            for (unsigned k=0; k<3; k++) {
+              comm.Sum(ann_deriv[i][j][k]);
+              ann_deriv[i][j][k] /= comm.Get_size();
+            }
+          }
+        }
+        //comm.Sum(&ann_deriv[0][0][0], 3*ann_deriv.size()*ann_deriv[0].size());
+      }
+      // SD -- this is probably not needed.
       comm.Sum(&m_virial[0][0],9);
     }
   } else {
@@ -1633,4 +1758,3 @@ void PIV::calculate()
 //Close Namespaces at the very beginning
 }
 }
-

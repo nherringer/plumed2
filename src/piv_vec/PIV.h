@@ -21,21 +21,6 @@ freely, subject to the following restrictions:
 #define __PLUMED_piv_vec_PIV_h
 
 
-//#include "colvar/Colvar.h"
-//#include "colvar/ActionRegister.h"
-//#include "core/PlumedMain.h"
-//#include "core/ActionWithVirtualAtom.h"
-//#include "tools/NeighborList.h"
-//#include "tools/SwitchingFunction.h"
-//#include "tools/PDB.h"
-//#include "tools/Pbc.h"
-//#include "tools/Stopwatch.h"
-//
-//#include <string>
-//#include <cmath>
-//#include <iostream>
-//#include <stdio.h>
-
 using namespace std;
 
 namespace PLMD {
@@ -84,69 +69,23 @@ private:
   Tensor m_virial;
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
-  int writestride;
+  // -- SD flag for writing a single file containing PIV values when using plumed driver.
+  bool writepivtraj;
+  // -- SD variables to control output PIV and ANN PIV derivative file during simulation.
+  int writepivstride, writeannstride;
+  // -- SD variables in prepare() function.
+  bool invalidateList,firsttime;
 public:
   static void registerKeywords( Keywords& keys );                                                                       
-  explicit PIV(const ActionOptions&); //ao):
-//      PLUMED_COLVAR_INIT(ao),                                                                                               
-//  pbc(true),                                                                                                            
-//  serial(false),                                                                                                        
-//  timer(false),                                                                                                                      
-//  NL_const_size(0),                                                                                                     
-//  updatePIV(1),                                                                                                         
-//  Nprec(1000),                                                                                                          
-//  Natm(1),                                                                                                              
-//  Nlist(1),                                                                                                             
-//  NLsize(1),                                                                                                            
-//  Fvol(1.),                                                                                                             
-//  Vol0(0.),                                                                                                             
-//  m_PIVdistance(0.),                                                                                                    
-//  rPIV(std:: vector<std:: vector<double> >(Nlist)),                                                                     
-//  scaling(std:: vector<double>(Nlist)),                                                                                 
-//  r00(std:: vector<double>(Nlist)),                                                                                     
-//  nl_skin(std:: vector<double>(Nlist)),                                                                                 
-//  fmass(std:: vector<double>(Nlist)),                                                                                   
-//  dosort(std:: vector<bool>(Nlist)),                                                                                    
-//  compos(std:: vector<Vector>(NLsize)),                                                                                 
-//  sw(std:: vector<string>(Nlist)),                                                                                      
-//  nl(std:: vector<NeighborList *>(Nlist)),                                                                              
-//  nlcom(std:: vector<NeighborList *>(NLsize)),                                                                          
-//  m_deriv(std:: vector<Vector>(1)),                                                                                     
-//  dr_dxyz_array(std:: vector<std:: vector<Vector> >(1)),                                                                
-//  ds_array(std:: vector<double>(1)),                                                                                    
-//  //ANN_sum_array(std:: vector<double>(1)),                                                                             
-//  ANN_piv_deriv(std:: vector<std:: vector<double>>(Nlist)),                                                             
-//  ann_deriv(std:: vector<std:: vector<Vector> >(1)),                                                                    
-//  PIV_Pair0(std:: vector<int>(1)),                                                                                      
-//  PIV_Pair1(std:: vector<int>(1)),                                                                                      
-//  Svol(false),                                                                                                          
-//  cross(true),                                                                                                          
-//  direct(true),                                                                                                         
-//  doneigh(false),                                                                                                       
-//  test(false),                                                                                                          
-//  CompDer(false),                                                                                                       
-//  com(false),                                                                                                           
-//  writestride(1),                                                                                                       
-//  cart2piv(false) ;                                                                                   
+  explicit PIV(const ActionOptions&); 
   ~PIV();                                                                                                               
   // active methods:                                                                                                    
   virtual void calculate();
   void checkFieldsAllowed() {}                                                                                           
-  // SD ANN SUM DERIVATIVE                                                                                              
-  std::vector<vector<double>> get_ann_sum_derivative(); //{  // {; //; // vector<vector<double>>&ann_piv_deriv_arr );
-
-   //std::vector<vector<double>> ann_piv_deriv_arr = ANN_piv_deriv;                                                        
-                                                                                                                        
-    //for(unsigned j=0; j<ann_piv_deriv_arr.size(); j++){                                                                   
-    //  for(unsigned i=0; i<ann_piv_deriv_arr[j].size(); i++){                                                              
-    //     printf("%8.6f\t", ann_piv_deriv_arr[j][i]);                                                                    
-    //  }                                                                                                                 
-    //  printf("\n");                                                                                                     
-    //}                                                                                                                   
-    //ann_piv_deriv_arr = ANN_piv_deriv;                                                                                  
-                                                                                                                        
- //   return ANN_piv_deriv;  
- //}
+  // -- SD prepare to requestAtoms during simulation 
+  void prepare() override;
+  // -- SD ANN SUM DERIVATIVE                                                                                              
+  std::vector<vector<double>> get_ann_sum_derivative(); 
 
 };
 

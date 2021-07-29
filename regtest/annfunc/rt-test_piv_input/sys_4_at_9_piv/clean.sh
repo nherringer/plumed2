@@ -1,0 +1,1 @@
+rm -f *# COLVAR HILLS PIVDERIVATIVES.dat ANNDERIVATIVES.dat METAD* plumed-test-md* ANN_deriv_file_1.dat ANN_deriv_file_2.dat ANN_deriv_file_3.dat ANN_deriv_file_4.dat ANN_deriv_file_5.dat PIV_representation_* bck.* METAPROJECTIONS.dat METADFORCES* FORCES.dat ANNFORCES.dat out.log ANN_deriv_file_0.dat ANNCOLVAR ANN_deriv* PIVCO* PIVFO*

@@ -1,0 +1,158 @@
+                 :-) GROMACS - gmx grompp, 2021.1-UNCHECKED (-:
+
+                            GROMACS is written by:
+     Andrey Alekseenko              Emile Apol              Rossen Apostolov     
+         Paul Bauer           Herman J.C. Berendsen           Par Bjelkmar       
+       Christian Blau           Viacheslav Bolnykh             Kevin Boyd        
+     Aldert van Buuren           Rudi van Drunen             Anton Feenstra      
+    Gilles Gouaillardet             Alan Gray               Gerrit Groenhof      
+       Anca Hamuraru            Vincent Hindriksen          M. Eric Irrgang      
+      Aleksei Iupinov           Christoph Junghans             Joe Jordan        
+    Dimitrios Karkoulis            Peter Kasson                Jiri Kraus        
+      Carsten Kutzner              Per Larsson              Justin A. Lemkul     
+       Viveca Lindahl            Magnus Lundborg             Erik Marklund       
+        Pascal Merz             Pieter Meulenhoff            Teemu Murtola       
+        Szilard Pall               Sander Pronk              Roland Schulz       
+       Michael Shirts            Alexey Shvetsov             Alfons Sijbers      
+       Peter Tieleman              Jon Vincent              Teemu Virolainen     
+     Christian Wennberg            Maarten Wolf              Artem Zhmurov       
+                           and the project leaders:
+        Mark Abraham, Berk Hess, Erik Lindahl, and David van der Spoel
+
+Copyright (c) 1991-2000, University of Groningen, The Netherlands.
+Copyright (c) 2001-2019, The GROMACS development team at
+Uppsala University, Stockholm University and
+the Royal Institute of Technology, Sweden.
+check out http://www.gromacs.org for more information.
+
+GROMACS is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License
+as published by the Free Software Foundation; either version 2.1
+of the License, or (at your option) any later version.
+
+GROMACS:      gmx grompp, version 2021.1-UNCHECKED
+Executable:   /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files/bin/gmx
+Data prefix:  /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files
+Working dir:  /data/research/enhancements/plumed-development/codes/simple_run_template/3_md
+Command line:
+  gmx grompp -f md.mdp -c nvt.gro -t nvt.cpt -p topol.top -o md.tpr -maxwarn 2
+
+Ignoring obsolete mdp entry 'title'
+Ignoring obsolete mdp entry 'ns_type'
+Generating 1-4 interactions: fudge = 0.5
+Number of degrees of freedom in T-Coupling group MOL is 171.99
+Number of degrees of freedom in T-Coupling group SOL is 42021.01
+Last frame         -1 time  100.000   
+
+Back Off! I just backed up md.tpr to ./#md.tpr.3#
+
+GROMACS reminds you: "We haven't the money, so we've got to think." (Ernest Rutherford)
+
+Setting the LD random seed to 2079125463
+
+Generated 2278 of the 2278 non-bonded parameter combinations
+
+Generated 2278 of the 2278 1-4 parameter combinations
+
+Excluding 3 bonded neighbours molecule type 'MOL'
+
+turning H bonds into constraints...
+
+Excluding 2 bonded neighbours molecule type 'SOL'
+
+turning H bonds into constraints...
+Analysing residue names:
+There are:     1      Other residues
+There are:  7004      Water residues
+Analysing residues not classified as Protein/DNA/RNA/Water and splitting into groups...
+
+Determining Verlet buffer for a tolerance of 0.005 kJ/mol/ps at 300 K
+
+Calculated rlist for 1x1 atom pair-list as 1.035 nm, buffer size 0.035 nm
+
+Set rlist, assuming 4x4 atom pair-list, to 1.000 nm, buffer size 0.000 nm
+
+Note that mdrun will redetermine rlist based on the actual pair-list setup
+
+Reading Coordinates, Velocities and Box size from old trajectory
+
+Will read whole trajectory
+
+Using frame at t = 100 ps
+
+Starting time for run is 0 ps
+Calculating fourier grid dimensions for X Y Z
+Using a fourier grid of 40x40x40, spacing 0.150 0.150 0.150
+
+Estimate for the relative computational load of the PME mesh part: 0.23
+
+This run will generate roughly 7 Mb of data
+                 :-) GROMACS - gmx mdrun, 2021.1-UNCHECKED (-:
+
+                            GROMACS is written by:
+     Andrey Alekseenko              Emile Apol              Rossen Apostolov     
+         Paul Bauer           Herman J.C. Berendsen           Par Bjelkmar       
+       Christian Blau           Viacheslav Bolnykh             Kevin Boyd        
+     Aldert van Buuren           Rudi van Drunen             Anton Feenstra      
+    Gilles Gouaillardet             Alan Gray               Gerrit Groenhof      
+       Anca Hamuraru            Vincent Hindriksen          M. Eric Irrgang      
+      Aleksei Iupinov           Christoph Junghans             Joe Jordan        
+    Dimitrios Karkoulis            Peter Kasson                Jiri Kraus        
+      Carsten Kutzner              Per Larsson              Justin A. Lemkul     
+       Viveca Lindahl            Magnus Lundborg             Erik Marklund       
+        Pascal Merz             Pieter Meulenhoff            Teemu Murtola       
+        Szilard Pall               Sander Pronk              Roland Schulz       
+       Michael Shirts            Alexey Shvetsov             Alfons Sijbers      
+       Peter Tieleman              Jon Vincent              Teemu Virolainen     
+     Christian Wennberg            Maarten Wolf              Artem Zhmurov       
+                           and the project leaders:
+        Mark Abraham, Berk Hess, Erik Lindahl, and David van der Spoel
+
+Copyright (c) 1991-2000, University of Groningen, The Netherlands.
+Copyright (c) 2001-2019, The GROMACS development team at
+Uppsala University, Stockholm University and
+the Royal Institute of Technology, Sweden.
+check out http://www.gromacs.org for more information.
+
+GROMACS is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License
+as published by the Free Software Foundation; either version 2.1
+of the License, or (at your option) any later version.
+
+GROMACS:      gmx mdrun, version 2021.1-UNCHECKED
+Executable:   /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files/bin/gmx
+Data prefix:  /data/research/enhancements/plumed-development/gromacs-2021.1/installed-files
+Working dir:  /data/research/enhancements/plumed-development/plumed2/regtest/annfunc/rt-test_piv_input/sys_4_at_9_piv_updated
+Command line:
+  gmx mdrun -ntomp 5 -s ../../../../../codes/simple_run_template/3_md/md.tpr -deffnm plumed-test-md -pin on -plumed plumed.dat -v
+
+Reading file ../../../../../codes/simple_run_template/3_md/md.tpr, VERSION 2021.1-UNCHECKED (single precision)
+Changing nstlist from 10 to 100, rlist from 1 to 1.159
+
+1 GPU selected for this run.
+Mapping of GPU IDs to the 2 GPU tasks in the 1 rank on this node:
+  PP:0,PME:0
+PP tasks will do (non-perturbed) short-ranged interactions on the GPU
+PP task will update and constrain coordinates on the CPU
+PME tasks will do all aspects on the GPU
+Using 1 MPI process
+Using 5 OpenMP threads 
+
+starting mdrun 'c24 in water'
+500 steps,      1.0 ps.
+step 0step 100, remaining wall clock time:    47 s          step 200, remaining wall clock time:    35 s          step 300, remaining wall clock time:    23 s          step 400, remaining wall clock time:    11 s          
+
+
+ Num of Atoms: 7007 	 total_count: 9 
+
+
+
+Writing final coordinates.
+
+               Core t (s)   Wall t (s)        (%)
+       Time:      305.064       61.013      500.0
+                 (ns/day)    (hour/ns)
+Performance:        1.419       16.914
+
+GROMACS reminds you: "The Nobel Prize is fine, but the drugs I've developed are rewards in themselves." (Gertrude Elion)
+
