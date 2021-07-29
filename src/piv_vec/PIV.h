@@ -69,12 +69,17 @@ private:
   Tensor m_virial;
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
+<<<<<<< HEAD
   // -- SD flag for writing a single file containing PIV values when using plumed driver.
   bool writepivtraj;
   // -- SD variables to control output PIV and ANN PIV derivative file during simulation.
   int writepivstride, writeannstride;
   // -- SD variables in prepare() function.
   bool invalidateList,firsttime;
+=======
+  bool writepivtraj;
+  int writepivstride, writeannstride;
+>>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
 public:
   static void registerKeywords( Keywords& keys );                                                                       
   explicit PIV(const ActionOptions&); 
