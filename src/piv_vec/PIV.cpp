@@ -268,13 +268,9 @@ void PIV::registerKeywords( Keywords& keys )
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
   keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
-<<<<<<< HEAD
   // -- SD Flag for writing PIV values in a single file when using plumed driver.
   keys.addFlag("WRITEPIVTRAJ",false,"Flag to enable or disable writing PIV_representation when using plumed driver.");
   // -- SD Variables to control frequency of writing PIV values and ANN PIV derivatives during simulation.
-=======
-  keys.addFlag("WRITEPIVTRAJ",false,"Flag to enable or disable writing PIV_representation when using plumed driver.");
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
   keys.add("optional","WRITEPIVSTRIDE","STRIDE to write PIV_representation.");
   keys.add("optional","WRITEANNSTRIDE","STRUDE to write ANN_derivative files.");
   componentsAreNotOptional(keys);
@@ -323,7 +319,6 @@ PIV::PIV(const ActionOptions&ao):
   test(false),
   CompDer(false),
   com(false),
-<<<<<<< HEAD
   // SD -- local variables corresponding to user defined flags.
   writepivtraj(false),
   writepivstride(1),
@@ -332,12 +327,6 @@ PIV::PIV(const ActionOptions&ao):
   // SD -- used in prepare function.
   invalidateList(true),
   firsttime(true)
-=======
-  writepivtraj(false),
-  writepivstride(1),
-  writeannstride(1),
-  cart2piv(false)
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
 {
   log << "Starting PIV Constructor\n";
 
@@ -470,11 +459,7 @@ PIV::PIV(const ActionOptions&ao):
     Pind0size=NLsize;
   }
   std:: vector<unsigned> Pind0(Pind0size);
-<<<<<<< HEAD
   // SD -- following resize of COM arrays to NLsize don't make sense to me. Should it be resnum? We don't use COM anyway.
-=======
-  // SD -- following resize of COM arrays to NLsize don't make sense. Should it be resnum?
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
   // If COM resize important arrays
   comatm.resize(NLsize);
   if(com) {
@@ -482,11 +467,7 @@ PIV::PIV(const ActionOptions&ao):
     compos.resize(NLsize);
     fmass.resize(NLsize,0.);
   }
-<<<<<<< HEAD
   // SD -- following total atoms don't make sense to me.
-=======
-  // SD -- following total atoms don't make sense.
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
   log << "Total COM/Atoms: " << Natm*resnum << " \n";
   // Build lists of Atoms/COMs for NLists
   //   comatm filled also for non_COM calculation for analysis purposes
@@ -522,16 +503,10 @@ PIV::PIV(const ActionOptions&ao):
       if(Pname==atype[j]) {
         if(Pind0[Pind]==0) {
           // adding the atomnumber to the atom/COM list for pairs
-<<<<<<< HEAD
           // SD local variable of type AtomNumber. Its value is set using countIndex.
           AtomNumber ati;
           ati.setIndex(countIndex);
           Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
-=======
-          AtomNumber ati;
-          ati.setIndex(countIndex);
-          Plist[j].push_back(ati); //num); //anum); //(ati);
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
           Pind0[Pind]=aind+1;
           oind=Pind;
           countIndex += 1;
@@ -551,50 +526,28 @@ PIV::PIV(const ActionOptions&ao):
       gname=mypdb.getAtomName(comatm[Pind0[oind]-1][0]);
       gsize=1;
     }
-    // SDlog
-    //log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
+    log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
   }
 
   // SD This is to build the list with the atoms required for PIV.
   std:: vector<AtomNumber> listall;
   for (unsigned j=0; j<Natm; j++) {
     for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
-<<<<<<< HEAD
       // SD --- including only user defined atom types;
-=======
-      // SD --- including only user defined atom types
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
       AtomNumber at_num = mypdb.getAtomNumbers()[i];                                                                        
       // ResidueName/Atomname associated to atom                                                                        
       string at_name = mypdb.getAtomName(at_num);                                                                             
       if(at_name == atype[j]) {
-<<<<<<< HEAD
         // -- SD listall should contain the actual atom numbers in the PDB file.
-=======
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
         listall.push_back(at_num);
       }                                                                                                               
     }                                                                                                                 
   }    
 
-<<<<<<< HEAD
   // SD previously, listall has all the atoms in the system.
   //for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {                                                          
   //  listall.push_back(mypdb.getAtomNumbers()[i]);                                                                     
   //}
-=======
-  //printf("countIndex: %d\n", countIndex); 
-
-  //for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {                                                          
-  //  listall.push_back(mypdb.getAtomNumbers()[i]);                                                                     
-  //}
-
-  //for (unsigned l=0; l<listall.size(); l++){
-  //  printf("l: %d \t list: %d\t total: %d\n", l, listall[l], mypdb.getAtomNumbers().size());
-  //}
-  //exit();
-
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
 
   // PIV blocks and Neighbour Lists
   Nlist=0;
@@ -651,11 +604,7 @@ PIV::PIV(const ActionOptions&ao):
       nl_cut[j]=nl_cut[j]+nl_skin[j];
     }
     log << "Creating Neighbor Lists \n";
-<<<<<<< HEAD
     // SD -- nlall is a neighbor list created using list all. nl_cut[0] and nl_st[0] are probably not needed.
-=======
-    // SD -- Why nl_cut[0] and nl_st[0]? Why listall -- all atoms?
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     // WARNING: is nl_cut meaningful here?
     nlall= new NeighborList(listall,true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
     if(com) {
@@ -674,10 +623,6 @@ PIV::PIV(const ActionOptions&ao):
       }
     }
 
-<<<<<<< HEAD
-=======
-    // SD -- Shouldn't the following change to account for NL constant size for each block?
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     // Cross blocks AB, AC, BC, ...
     if(cross) {
 
@@ -691,31 +636,6 @@ PIV::PIV(const ActionOptions&ao):
         }
       }
 
-<<<<<<< HEAD
-=======
-    //printf("\n\n##########################################\n\n");
-    //int tempcnt=0
-    //for(int j = 0; j < Natm; j ++) {                                                                                    
-    //  for(int i= j+1; i < Natm; i++) {                                                                                  
-    //      if(i == Natm - 1) {                                                                                           
-    //        for(int n = 0; n < NL_const_size; n++) {                                                                    
-    //          string comp = "ELEMENT-" + to_string(total_count);                                                        
-    //          addComponentWithDerivatives(comp);                                                                        
-    //          componentIsNotPeriodic(comp);                                                                             
-    //          total_count += 1;                                                                                         
-    //        }                                                                                                           
-    //      } else {                                                                                                      
-    //        string comp = "ELEMENT-" + to_string(total_count);                                                          
-    //        addComponentWithDerivatives(comp);                                                                          
-    //        componentIsNotPeriodic(comp);                                                                               
-    //        total_count +=1;                                                                                            
-    //      }                                                                                                             
-    //    printf("nl[%d]: %f\t]");
-    //  }
-    //} 
-
-
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     }
   } else {
     log << "WARNING: Neighbor List not activated this has not been tested!!  \n";
@@ -882,8 +802,7 @@ PIV::PIV(const ActionOptions&ao):
           lmt1+=1;
         }
       }
-      // SDlog
-      //log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
+      log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
     }
   }
 
@@ -923,18 +842,7 @@ PIV::PIV(const ActionOptions&ao):
     //}
     requestAtoms(nlall->getFullAtomList());
 
-<<<<<<< HEAD
     //printf("\n\n\n Num of Atoms: %d \t total_count: %d \n\n\n", getNumberOfAtoms(), total_count);
-=======
-    //for (unsigned j=0; j<Natm; j++) {                                                                                 
-    //  for (unsigned i=j+1; i<Natm; i++) {                                                                             
-    //    nl[cnt] = nl[ncnt]->getReducedAtomList();                                                                 
-    //    ncnt+=1;                                                                                                      
-    //  }                                                                                                               
-    //}
-
-    printf("\n\n\n Num of Atoms: %d \t total_count: %d \n\n\n", getNumberOfAtoms(), total_count);
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     //printf("\n\n\n Num of Atoms in List: %d\n\n\n", listall.size());
 
     ann_deriv.resize(getNumberOfAtoms());
@@ -1073,8 +981,7 @@ void PIV::calculate()
           lmt1+=1;
         }
       }
-      // SDlog
-      //log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
+      log.printf("       |%10i|%15zu|%15i|%15i|\n", j, rPIV[j].size(), lmt0, lmt1);
     }
     log << "\n";
   }
@@ -1195,11 +1102,6 @@ void PIV::calculate()
               Vint = 1;
             }
           }
-<<<<<<< HEAD
-=======
-
-          //printf("i0: %d \t i1: %d \t Vint: %d \t ddistmodulo:%f \t df: %f \n", i0, i1, Vint, ddist.modulo(), df);
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
 
           //Integer transformed distance values as index of the Ordering Vector OrdVec
           OrdVec[Vint]+=1;
@@ -1315,9 +1217,8 @@ void PIV::calculate()
       } else {
         limit = rPIV[j].size();
       }
-      // SDlog
-      //log.printf("PIV Block:  %6i %12s %6i \n", j, "      Size:", limit);
-      //log.printf("%6s%6s%12s%12s%36s\n","     i","     j", "    c-PIV   ","    r-PIV   ","   i-j distance vector       ");
+      log.printf("PIV Block:  %6i %12s %6i \n", j, "      Size:", limit);
+      log.printf("%6s%6s%12s%12s%36s\n","     i","     j", "    c-PIV   ","    r-PIV   ","   i-j distance vector       ");
       for(unsigned i=0; i<limit; i++) {
         unsigned i0=0;
         unsigned i1=0;
@@ -1351,8 +1252,7 @@ void PIV::calculate()
           cP = sfs[j].calculate(dm*Fvol, dfunc);
           rP = rPIV[j][i];
         }
-        // SDlog
-        //log.printf("%6i%6i%12.6f%12.6f%12.6f%12.6f%12.6f\n",i0,i1,cP,rP,distance[0],distance[1],distance[2]);
+        log.printf("%6i%6i%12.6f%12.6f%12.6f%12.6f%12.6f\n",i0,i1,cP,rP,distance[0],distance[1],distance[2]);
       }
     }
     log.printf("This was a test, now exit \n");
@@ -1375,10 +1275,7 @@ void PIV::calculate()
       piv_rep_file_traj = fopen(piv_rep_fileName_traj.c_str(), "a");
     }
 
-<<<<<<< HEAD
     // SD countLoopLimit for debugging.
-=======
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     int countLoopLimit = 0;
     for(unsigned j=0; j<Nlist; j++) {
       bool dosorting=dosort[j];
@@ -1398,21 +1295,12 @@ void PIV::calculate()
           start_val = limit - NL_const_size;
         }
         if (writepivtraj) {
-<<<<<<< HEAD
           for(unsigned i=start_val; i<limit; i++) {
             fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
           }
         }
         if ( getStep() % writepivstride == 0) {
           for(unsigned i=start_val; i<limit; i++) {
-=======
-          for(unsigned i=start_val; i<limit; i++) {
-            fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
-          }
-        }
-        if ( getStep() % writepivstride == 0) {
-          for(unsigned i=start_val; i<limit; i++) {
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
             fprintf(piv_rep_file, "%8.6f\t", cPIV[j][i]);
             countLoopLimit += 1;
           }
@@ -1432,10 +1320,7 @@ void PIV::calculate()
         }
       }
     }
-<<<<<<< HEAD
     // SD for debugging
-=======
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
     //printf("\nEnd limit: %d\n", countLoopLimit);
     if (writepivtraj) {
       fprintf(piv_rep_file_traj, "\n#END OF FRAME\n");
@@ -1526,11 +1411,8 @@ void PIV::calculate()
         // Create the ds_array one element at a time --NH
         ds_element = scaling[j]*Fvol*Fvol*dfunc*dm;
         ds_array[PIV_element] = ds_element;
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 608e0a56b108e5745bff0001c31a5c0459882838
         //printf("ds_array: %8.10f\n", ds_array[PIV_element]);
         //countLoop += 1;
         // Create 1x3 vector of (dr/dx,dr/dy,dr/dz) --NH
