@@ -42,6 +42,7 @@ private:
   double Fvol,Vol0,m_PIVdistance;
   std::string ref_file;
   NeighborList *nlall;
+  NeighborList *nlreduced;
   std::vector<SwitchingFunction> sfs;
   std::vector<std:: vector<double> > rPIV;
   std::vector<double> scaling,r00;
@@ -51,8 +52,18 @@ private:
   std::vector<Vector> compos;
   std::vector<string> sw;
   std::vector<NeighborList *> nl;
+  std::vector<NeighborList *> nl_small;
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
+
+  std::vector<std::vector<AtomNumber>> Plist;
+  std::vector<AtomNumber> listall;
+  std::vector<AtomNumber> listreduced;
+  std::vector<AtomNumber> listnonwater;
+  std::vector<double> nl_cut;
+  std::vector<int> nl_st;
+  std::vector<string> atype;
+
   // ann_deriv is the 3D array (dv(r)/dxyz) passed to the plumed core --NH
   std::vector<std:: vector<Vector> > ann_deriv;
   // dr_dxyz_array is the 3D array (dr/dxyz) used to build ann_deriv and ANN_sum_array --NH
@@ -85,7 +96,7 @@ public:
   // -- SD prepare to requestAtoms during simulation 
   void prepare() override;
   // -- SD ANN SUM DERIVATIVE                                                                                              
-  std::vector<vector<double>> get_ann_sum_derivative(); 
+  std::vector<vector<double>> get_ann_sum_derivative();
 
 };
 
