@@ -38,7 +38,7 @@ private:
   // Added NL_const_size to fix solute-solvent elements as constant size
   int updatePIV,NL_const_size;
   size_t Nprec;
-  unsigned Natm,Nlist,NLsize;
+  unsigned Natm,Nlist,NLsize,solv_blocks;
   double Fvol,Vol0,m_PIVdistance;
   std::string ref_file;
   NeighborList *nlall;
@@ -56,6 +56,9 @@ private:
   std::vector<NeighborList *> nlcom;
   std::vector<Vector> m_deriv;
 
+  std::vector<unsigned> AtomToResID_Dict;
+  std::vector<unsigned> NList_OW_blocks;
+  std::vector<unsigned> NList_HW_blocks;
   std::vector<std::vector<AtomNumber>> Plist;
   std::vector<AtomNumber> listall;
   std::vector<AtomNumber> listreduced;
@@ -97,7 +100,7 @@ public:
   void prepare() override;
   // -- SD ANN SUM DERIVATIVE                                                                                              
   std::vector<vector<double>> get_ann_sum_derivative();
-
+  void Update_NL();
 };
 
 }

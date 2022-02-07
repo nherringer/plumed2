@@ -294,6 +294,7 @@ PIV::PIV(const ActionOptions&ao):
   Fvol(1.),
   Vol0(0.),
   m_PIVdistance(0.),
+  solv_blocks(1),
   scaling(std:: vector<double>(Nlist)),
   r00(std:: vector<double>(Nlist)),
   nl_skin(std:: vector<double>(Nlist)),
@@ -314,6 +315,9 @@ PIV::PIV(const ActionOptions&ao):
   PIV_Pair1(std:: vector<int>(1)),
   Plist(std:: vector<std:: vector<AtomNumber> >(1)),
   listall(std:: vector<AtomNumber>(1)),
+  AtomToResID_Dict(std:: vector<unsigned>(1)),
+  NList_OW_blocks(std:: vector<unsigned>(1)),
+  NList_HW_blocks(std:: vector<unsigned>(1)),
   listreduced(std:: vector<AtomNumber>(1)),
   listnonwater(std:: vector<AtomNumber>(1)),
   atype(std:: vector<string>(1)),
@@ -418,7 +422,40 @@ PIV::PIV(const ActionOptions&ao):
   //std:: vector<string> atype(Natm);
   atype.resize(Natm);
   parseVector("ATOMTYPES",atype);
+  // solv_blocks: 0=No water atoms; 1=water oxygen only; 2= Both and only water hydrogens used; 3=All 3 water atoms used
+  solv_blocks=0;
   //if(atype.size()!=getNumberOfArguments() && atype.size()!=0) error("not enough values for ATOMTYPES");
+  // Set solv_blocks based on ATOMTYPES included in input file
+  if (std::find(atype.begin(), atype.end(), "OW") != atype.end()) {
+    solv_blocks=1;
+  }
+  if ( (std::find(atype.begin(), atype.end(), "HW1") != atype.end()) && (std::find(atype.begin(), atype.end(), "HW2") != atype.end()) ) {
+    solv_blocks=2;
+  }
+  if ( (std::find(atype.begin(), atype.end(), "OW") != atype.end()) && (std::find(atype.begin(), atype.end(), "HW1") != atype.end()) && (std::find(atype.begin(), atype.end(), "HW2") != atype.end()) ) {
+    solv_blocks=3;
+  }
+  // If included, HW1 and HW2 atomtypes are combined into a single HW
+  // atomtype so Natm must be decreased by 1 to account for this
+  if (solv_blocks > 1) {
+    Natm = Natm - 1; 
+  }
+  // Specific ordering of solvent atomtypes in input file is necessary
+  // to avoid complicating the code. This checks to make sure that the
+  // expected order is being followed in the input file.
+  if (solv_blocks == 1) {
+    if (atype[atype.size()-1] != "OW") {
+      error("Water atoms must be listed last for ATOMTYPES and must be listed in order as (OW), (HW1,HW2), or (OW,HW1,HW2)");
+    }
+  } else if (solv_blocks == 2) {
+    if ((atype[atype.size()-2] != "HW1") || (atype[atype.size()-1] != "HW2")) {
+      error("Water atoms must be listed last for ATOMTYPES and must be listed in order as (OW), (HW1,HW2), or (OW,HW1,HW2)");
+    }
+  } else if (solv_blocks == 3) {
+    if ((atype[atype.size()-3] != "OW") || (atype[atype.size()-2] != "HW1") || (atype[atype.size()-1] != "HW2")) {
+      error("Water atoms must be listed last for ATOMTYPES and must be listed in order as (OW), (HW1,HW2), or (OW,HW1,HW2)");
+    }
+  }
 
   // Reference PDB file
   parse("REF_FILE",ref_file);
@@ -523,6 +560,24 @@ PIV::PIV(const ActionOptions&ao):
         // adding the atomnumber to list of atoms for every COM/Atoms
         comatm[Pind0[Pind]-1].push_back(anum);
       }
+      // This block accounts for the combination of HW1 and HW2 so that
+      // HW2 atom IDs are still included
+      if( (solv_blocks > 1) && (j == Natm-1) ) {
+        if(Pname==atype[atype.size()-1]) {
+          if(Pind0[Pind]==0) {
+            // adding the atomnumber to the atom/COM list for pairs
+            // SD local variable of type AtomNumber. Its value is set using countIndex.
+            AtomNumber ati;
+            ati.setIndex(countIndex);
+            Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
+            Pind0[Pind]=aind+1;
+            oind=Pind;
+            countIndex += 1;
+          }
+          // adding the atomnumber to list of atoms for every COM/Atoms
+          comatm[Pind0[Pind]-1].push_back(anum);
+        }
+      }
     }
     // Output Lists
     log << "  Groups of type  " << j << ": " << Plist[j].size() << " \n";
@@ -541,17 +596,39 @@ PIV::PIV(const ActionOptions&ao):
   // SD This is to build the list with the atoms required for PIV.
   // std:: vector<AtomNumber> listall;
   listall.clear();
-  for (unsigned j=0; j<Natm; j++) {
-    for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
-      // SD --- including only user defined atom types;
-      AtomNumber at_num = mypdb.getAtomNumbers()[i];                                                                        
-      // ResidueName/Atomname associated to atom                                                                        
-      string at_name = mypdb.getAtomName(at_num);                                                                             
-      if(at_name == atype[j]) {
-        // -- SD listall should contain the actual atom numbers in the PDB file.
-        listall.push_back(at_num);
-      }                                                                                                               
-    }                                                                                                                 
+  // AtomToResID is used to ensure that all relevant atoms from a water
+  // molecule are considered by matching their residue ID. AtomToResID
+  // uses the same indexing as listall for easy comparison between atom
+  // IDs and their corresponding residue ID.
+  AtomToResID_Dict.clear();
+  if (solv_blocks > 1) {
+    for (unsigned j=0; j<Natm+1; j++) {
+      for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
+        // SD --- including only user defined atom types;
+        AtomNumber at_num = mypdb.getAtomNumbers()[i];
+        unsigned rind=mypdb.getResidueNumber(mypdb.getAtomNumbers()[i]);                                                                        
+        // ResidueName/Atomname associated to atom                                                                        
+        string at_name = mypdb.getAtomName(at_num);                                                                             
+        if(at_name == atype[j]) {
+          // -- SD listall should contain the actual atom numbers in the PDB file.
+          listall.push_back(at_num);
+          AtomToResID_Dict.push_back(rind);
+        }                                                                                                               
+      }                                                                                                                 
+    }
+  } else {
+    for (unsigned j=0; j<Natm; j++) {
+      for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
+        // SD --- including only user defined atom types;
+        AtomNumber at_num = mypdb.getAtomNumbers()[i];                                                                        
+        // ResidueName/Atomname associated to atom                                                                        
+        string at_name = mypdb.getAtomName(at_num);                                                                             
+        if(at_name == atype[j]) {
+          // -- SD listall should contain the actual atom numbers in the PDB file.
+          listall.push_back(at_num);
+        }                                                                                                               
+      }                                                                                                                 
+    }
   }
   // printf("Initial listall:\n");
   // for(unsigned j=0; j<listall.size(); j++) {
@@ -572,8 +649,44 @@ PIV::PIV(const ActionOptions&ao):
   // Cross adds the A-B blocks (N*(N-1)/2)
   if(cross) {
     Nlist=Nlist+unsigned(double(Natm*(Natm-1))/2.);
+    // If water oxygens and water hydrogens are included
+    // there will be an undesirable interaction block corresponding to
+    // OW-HW. This removes that block from the total block count (Nlist)
+    if (solv_blocks == 3) {
+      Nlist = Nlist - 1;
+    }
   }
 
+  unsigned ncnt=0;
+  // NL_const_size limits the size of water oxygen blocks (also can be
+  // thought of as the number of water molecules), but there should be
+  // twice as many hydrogen considered as oxygen (2:1 hydrogen/oxygen
+  // ratio in water). This helps with this later by specifying which
+  // block numbers out of Nlist correspond to which block types 
+  NList_OW_blocks.clear();
+  NList_HW_blocks.clear();
+  for (unsigned j=0; j<Natm; j++) {
+    for (unsigned i=j+1; i<Natm; i++) {
+      if (ncnt < Nlist) {
+        if (solv_blocks == 1) {
+          if (i == Natm-1) {
+            NList_OW_blocks.push_back(ncnt);
+          }
+        } else if (solv_blocks == 2) {
+          if (i == Natm-1) {
+            NList_HW_blocks.push_back(ncnt);
+          }
+        } else if (solv_blocks == 3) {
+          if (i == Natm-1) {
+            NList_HW_blocks.push_back(ncnt);
+          } else if (i == Natm-2) {
+            NList_OW_blocks.push_back(ncnt);
+          }
+        }
+      }
+      ncnt+=1;
+    }
+  }
 
   // PIV scaled option
   scaling.resize(Nlist);
@@ -642,14 +755,16 @@ PIV::PIV(const ActionOptions&ao):
 
     // Cross blocks AB, AC, BC, ...
     if(cross) {
-
       // -- SD No changes here. nl depends on Plist for each j. Plist for each j = [0, Num of atoms of type j]
       // -- SD example: if j=0 corresponds to C1, Plist[0] = [0] because there is only one C1; if is OW, it is [0, 1, 2, ... Nwaters]
       for (unsigned j=0; j<Natm; j++) {
         for (unsigned i=j+1; i<Natm; i++) {
-          nl[ncnt]= new NeighborList(Plist[i],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[ncnt],nl_st[ncnt]);
-          //printf("nl[%d] size: %d\n", ncnt, nl[ncnt].size());
-          //printf("nl[%d] address: %d\n", ncnt, );
+          // This accounts for the case where Nlist != Natm*(Natm-1)/2 (when solv_blocks = 3)
+          if (ncnt < Nlist) {
+            nl[ncnt]= new NeighborList(Plist[i],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[ncnt],nl_st[ncnt]);
+            //printf("nl[%d] size: %d\n", ncnt, nl[ncnt].size());
+            //printf("nl[%d] address: %d\n", ncnt, );
+          }
           ncnt+=1;
         }
       }
@@ -658,12 +773,22 @@ PIV::PIV(const ActionOptions&ao):
 
     if(getStep()==0) {
       std::vector<vector<AtomNumber>> snn_list;
+      std::vector<vector<AtomNumber>> Hydrogen_nn_list;
       std::vector<double> snn_mags;
       std::vector<AtomNumber> all_ids;
       std::vector<double> all_mags;
       std::vector<AtomNumber> total_waterOx_list;
+      std::vector<AtomNumber> total_waterHydrogen_list;
       int Nlist_count;
-      snn_list.resize(Natm-1);
+
+      // Sized for Natm - solvent atom 
+      if (solv_blocks == 3) {
+        Hydrogen_nn_list.resize(Natm-2);
+        snn_list.resize(Natm-2);
+      } else {
+        Hydrogen_nn_list.resize(Natm-1);
+        snn_list.resize(Natm-1);
+      }
 
       Vector ddist;
       double smallest_val;
@@ -671,7 +796,10 @@ PIV::PIV(const ActionOptions&ao):
 
       for(unsigned j=0; j<Natm; j++) {
         for(unsigned i=j+1; i<Natm; i++) {
-          if(i==Natm-1) {
+          if( (atype[i] == "OW") || ((solv_blocks == 2) && (atype[i] == "HW1")) ) {
+            all_mags.clear();
+            all_ids.clear();
+            
             for(unsigned k=0; k<nl[Nlist_count]->size(); k++) {
               unsigned id0=(nl[Nlist_count]->getClosePairAtomNumber(k).first).index();
               unsigned id1=(nl[Nlist_count]->getClosePairAtomNumber(k).second).index();
@@ -698,6 +826,27 @@ PIV::PIV(const ActionOptions&ao):
               }
               snn_mags.push_back(smallest_val);
               snn_list[j].push_back(all_ids[nl_pos]);
+
+              // If water hydrogen are included, 
+              // find them by residue ID
+              unsigned atom_indx = listall.size();
+              if (solv_blocks > 1) {
+                for(unsigned k=0; k<listall.size(); k++) {
+                  if (listall[k] == all_ids[nl_pos]) {
+                    atom_indx = k;
+                  }
+                }
+                for(unsigned k=0; k<listall.size(); k++) {
+                  if (AtomToResID_Dict[atom_indx] == AtomToResID_Dict[k]) {
+                    if( (solv_blocks == 3) && (atom_indx != k) ){
+                      Hydrogen_nn_list[j].push_back(listall[k]);
+                    } else if ( (solv_blocks == 2) ) {
+                      Hydrogen_nn_list[j].push_back(listall[k]);
+                    }
+                  }
+                }
+              }
+
               all_mags[nl_pos] = 99999;
               if(total_waterOx_list.empty()) {
                 total_waterOx_list.push_back(all_ids[nl_pos]);
@@ -712,53 +861,115 @@ PIV::PIV(const ActionOptions&ao):
                   total_waterOx_list.push_back(all_ids[nl_pos]);
                 }
               }
+              // If hydrogen IDs aren't in the total ID list, add them
+              if (solv_blocks > 1) {
+                if (std::find(total_waterHydrogen_list.begin(), total_waterHydrogen_list.end(), Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-2]) == total_waterHydrogen_list.end()) {
+                  total_waterHydrogen_list.push_back(Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-2]);
+                }
+                if (std::find(total_waterHydrogen_list.begin(), total_waterHydrogen_list.end(), Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-1]) == total_waterHydrogen_list.end()) {
+                  total_waterHydrogen_list.push_back(Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-1]);
+                }
+              }
             }
           }
           Nlist_count += 1;
         }
       }
       // // fclose(debugging_file);
-      std::sort(total_waterOx_list.begin(), total_waterOx_list.end());
+      if (solv_blocks > 0) {
+        std::sort(total_waterOx_list.begin(), total_waterOx_list.end());
+      }
       listreduced.clear();
       listnonwater.clear();
-      for (unsigned j=0; j<Natm-1; j++) {
+      for (unsigned j=0; j<Natm; j++) {
         for (unsigned i=0; i<mypdb.getAtomNumbers().size(); i++) {
           // SD --- including only user defined atom types;
           AtomNumber at_num = mypdb.getAtomNumbers()[i];                                                                        
           // ResidueName/Atomname associated to atom                                                                        
           string at_name = mypdb.getAtomName(at_num);                                                                             
-          if(at_name == atype[j]) {
+          if( (at_name == atype[j]) && ( (at_name != "OW") && (at_name != "HW1") && (at_name != "HW2") ) ) {
             // -- SD listall should contain the actual atom numbers in the PDB file.
             listnonwater.push_back(at_num);
           }                                                                                                               
         }                                                                                                                 
       }
       listreduced = listnonwater;
-      //printf("step0 listall oxygens: \n");
-      for(unsigned i=0; i<total_waterOx_list.size(); i++) {
-        listreduced.push_back(total_waterOx_list[i]);
-        //printf("%d \n", total_waterOx_list[i].index());
+      // Add solvent IDs to the total ID list
+      if (solv_blocks == 1) {
+        for(unsigned i=0; i<total_waterOx_list.size(); i++) {
+          listreduced.push_back(total_waterOx_list[i]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
+      } else if (solv_blocks == 2) {
+        for(unsigned i=0; i<total_waterHydrogen_list.size(); i++) {
+          listreduced.push_back(total_waterHydrogen_list[i]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
+      } else if (solv_blocks == 3) {
+        for(unsigned i=0; i<total_waterOx_list.size(); i++) {
+          listreduced.push_back(total_waterOx_list[i]);
+          listreduced.push_back(total_waterHydrogen_list[i*2]);
+          listreduced.push_back(total_waterHydrogen_list[i*2+1]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
       }
-      for(unsigned j=0; j<Natm-1; j++) {
-        for(unsigned k=0; k<NL_const_size+10; k++) {
-          for(unsigned i=0; i<listreduced.size(); i++) {
-            if(snn_list[j][k]==listreduced[i]){
-              AtomNumber atom_id;
-              snn_list[j][k]=atom_id.setIndex(i);
+      // Match atom IDs to positional indexing in listreduced    
+      if (solv_blocks == 3) { 
+        for(unsigned j=0; j<Natm-2; j++) {
+          for(unsigned k=0; k<NL_const_size+10; k++) {
+            for(unsigned i=0; i<listreduced.size(); i++) {
+              if(snn_list[j][k]==listreduced[i]){
+                AtomNumber atom_id;
+                snn_list[j][k]=atom_id.setIndex(i);
+              }
+              if(Hydrogen_nn_list[j][2*k]==listreduced[i]){
+                AtomNumber atom_id;
+                Hydrogen_nn_list[j][2*k]=atom_id.setIndex(i);
+              }
+              if(Hydrogen_nn_list[j][2*k+1]==listreduced[i]){
+                AtomNumber atom_id;
+                Hydrogen_nn_list[j][2*k+1]=atom_id.setIndex(i);
+              }
+            }
+          }
+        }
+      } else {
+        for(unsigned j=0; j<Natm-1; j++) {
+          for(unsigned k=0; k<NL_const_size+10; k++) {
+            for(unsigned i=0; i<listreduced.size(); i++) {
+              if (solv_blocks == 1) {
+                if(snn_list[j][k]==listreduced[i]){
+                  AtomNumber atom_id;
+                  snn_list[j][k]=atom_id.setIndex(i);
+                }
+              }
+              if (solv_blocks == 2) {
+                if(Hydrogen_nn_list[j][2*k]==listreduced[i]){
+                  AtomNumber atom_id;
+                  Hydrogen_nn_list[j][2*k]=atom_id.setIndex(i);
+                }
+                if(Hydrogen_nn_list[j][2*k+1]==listreduced[i]){
+                  AtomNumber atom_id;
+                  Hydrogen_nn_list[j][2*k+1]=atom_id.setIndex(i);
+                }
+              }
             }
           }
         }
       }
-
       int count_nl_loop=0;
       for(unsigned j=0; j<Natm-1; j++) {
         for(unsigned i=j+1; i<Natm; i++) {
-          if(i==Natm-1) {
-            nl_small[count_nl_loop] = new NeighborList(snn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
-            //printf("nl_small[%d] size: %d\n", count_nl_loop, nl_small[count_nl_loop].size());
-          } else {
-            nl_small[count_nl_loop] = new NeighborList(Plist[i],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[ncnt],nl_st[ncnt]);
-            //printf("nl_small[%d] size: %d\n", count_nl_loop, nl_small[count_nl_loop].size());
+          if (count_nl_loop < Nlist) {
+            if(atype[i] == "OW") {
+              nl_small[count_nl_loop] = new NeighborList(snn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
+              //printf("nl_small[%d] size: %d\n", count_nl_loop, nl_small[count_nl_loop].size());
+            } else if (atype[i] == "HW1") {
+              nl_small[count_nl_loop] = new NeighborList(Hydrogen_nn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
+            } else {
+              nl_small[count_nl_loop] = new NeighborList(Plist[i],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[ncnt],nl_st[ncnt]);
+              //printf("nl_small[%d] size: %d\n", count_nl_loop, nl_small[count_nl_loop].size());
+            }
           }
           count_nl_loop += 1;
         }
@@ -895,10 +1106,20 @@ PIV::PIV(const ActionOptions&ao):
   // and expects that the interaction with solvent is the last block of the each solute atom's interactions
   // Total count keeps a running tally of the elements in the entire PIV so that there will be an equal number of components.
   unsigned total_count=0;
-  for(int j = 0; j < Natm; j ++) {
+  int count_nl_loop=0;
+  for(int j = 0; j < Natm; j++) {
     for(int i= j+1; i < Natm; i++) {
-        if(i == Natm - 1) {
+      if (count_nl_loop < Nlist) {
+        // Add elements for the various solvent blocks if needed
+        if(atype[i] == "OW") {
           for(int n = 0; n < NL_const_size; n++) {
+            string comp = "ELEMENT-" + to_string(total_count);
+            addComponentWithDerivatives(comp); 
+            componentIsNotPeriodic(comp);
+            total_count += 1;
+          }
+        } else if(atype[i] == "HW1") {
+          for(int n = 0; n < 2*NL_const_size; n++) {
             string comp = "ELEMENT-" + to_string(total_count);
             addComponentWithDerivatives(comp); 
             componentIsNotPeriodic(comp);
@@ -910,6 +1131,8 @@ PIV::PIV(const ActionOptions&ao):
           componentIsNotPeriodic(comp);
           total_count +=1;
         }
+      }
+      count_nl_loop +=1;
     }
   }
 
@@ -951,11 +1174,34 @@ void PIV::prepare() {
       //printf("nlall size: %d\n", nlall.size());
       //printf("listall size: %d\n", listall.size());
       ann_deriv.resize(listall.size());
+
       int total_count=0;
-      for(unsigned j=0; j<Natm-1; j++) {
-        total_count += j;
+      // Adjust total_count based on the solvent atoms considered.
+      // Total_count should be the total number of elements in the
+      // PIV block.
+
+      if (solv_blocks == 3) {
+        for(unsigned j=0; j<Natm-2; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-2)*3;
+      } else if (solv_blocks == 2) {
+        for(unsigned j=0; j<Natm-1; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-1)*2;
+      } else if (solv_blocks == 1) {
+        for(unsigned j=0; j<Natm-1; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-1);
+      } else {
+        for(unsigned j=0; j<Natm; j++) {
+          total_count += j;
+        }
       }
-      total_count += NL_const_size*(Natm-1);
+
+
       for(unsigned i=0; i < listall.size(); i++) {
         ann_deriv[i].resize(total_count);
       }
@@ -967,15 +1213,27 @@ void PIV::prepare() {
     } else if((getStep()%nlall->getStride()==0) && (getStep()!=0)) {
       
       std::vector<vector<AtomNumber>> snn_list;
+      std::vector<vector<AtomNumber>> Hydrogen_nn_list;
       std::vector<double> snn_mags;
       std::vector<AtomNumber> all_ids;
       std::vector<double> all_mags;
       std::vector<AtomNumber> total_waterOx_list;
+      std::vector<AtomNumber> total_waterHydrogen_list;
+
       int buffer=10;
       int Nlist_count;
       snn_list.clear();
+      Hydrogen_nn_list.clear();
       total_waterOx_list.clear();
-      snn_list.resize(Natm-1);
+      total_waterHydrogen_list.clear();
+
+      if (solv_blocks == 3) {
+        Hydrogen_nn_list.resize(Natm-2);
+        snn_list.resize(Natm-2);
+      } else {
+        Hydrogen_nn_list.resize(Natm-1);
+        snn_list.resize(Natm-1);
+      }
 
       Vector ddist;
       double smallest_val;
@@ -984,7 +1242,7 @@ void PIV::prepare() {
       Nlist_count=0;
       for(unsigned j=0; j<Natm; j++) {
         for(unsigned i=j+1; i<Natm; i++) {
-          if(i==Natm-1) {
+          if( (atype[i] == "OW") || ((solv_blocks == 2) && (atype[i] == "HW1")) ) {
             all_mags.clear();
             all_ids.clear();
 
@@ -1017,6 +1275,26 @@ void PIV::prepare() {
 
               snn_mags.push_back(smallest_val);
               snn_list[j].push_back(all_ids[nl_pos]);
+
+              unsigned atom_indx = listall.size();
+              if (solv_blocks > 1) {
+                for(unsigned k=0; k<listall.size(); k++) {
+                  if (listall[k] == all_ids[nl_pos]) {
+                    atom_indx = k;
+                  }
+                }
+                for(unsigned k=0; k<listall.size(); k++) {
+                  if (AtomToResID_Dict[atom_indx] == AtomToResID_Dict[k]) {
+                    if( (solv_blocks == 3) && (atom_indx != k) ){
+                      Hydrogen_nn_list[j].push_back(listall[k]);
+                    } else if ( (solv_blocks == 2) ) {
+                      Hydrogen_nn_list[j].push_back(listall[k]);
+                    }
+                  }
+                }
+              }
+
+
               all_mags[nl_pos] = 99999.;
               if(total_waterOx_list.empty()) {
                 total_waterOx_list.push_back(all_ids[nl_pos]);
@@ -1031,23 +1309,83 @@ void PIV::prepare() {
                   total_waterOx_list.push_back(all_ids[nl_pos]);
                 }
               }
+              if (solv_blocks > 1) {
+                if (std::find(total_waterHydrogen_list.begin(), total_waterHydrogen_list.end(), Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-2]) == total_waterHydrogen_list.end()) {
+                  total_waterHydrogen_list.push_back(Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-2]);
+                }
+                if (std::find(total_waterHydrogen_list.begin(), total_waterHydrogen_list.end(), Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-1]) == total_waterHydrogen_list.end()) {
+                  total_waterHydrogen_list.push_back(Hydrogen_nn_list[j][Hydrogen_nn_list[j].size()-1]);
+                }
+              }
             }
           }
           Nlist_count += 1;
         }
       }
-      std::sort(total_waterOx_list.begin(), total_waterOx_list.end());
+      if (solv_blocks > 0) {
+        std::sort(total_waterOx_list.begin(), total_waterOx_list.end());
+      }
       listreduced.clear();
       listreduced = listnonwater;
-      for(unsigned i=0; i<total_waterOx_list.size(); i++) {
-        listreduced.push_back(total_waterOx_list[i]);
+
+      if (solv_blocks == 1) {
+        for(unsigned i=0; i<total_waterOx_list.size(); i++) {
+          listreduced.push_back(total_waterOx_list[i]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
+      } else if (solv_blocks == 2) {
+        for(unsigned i=0; i<total_waterHydrogen_list.size(); i++) {
+          listreduced.push_back(total_waterHydrogen_list[i]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
+      } else if (solv_blocks == 3) {
+        for(unsigned i=0; i<total_waterOx_list.size(); i++) {
+          listreduced.push_back(total_waterOx_list[i]);
+          listreduced.push_back(total_waterHydrogen_list[i*2]);
+          listreduced.push_back(total_waterHydrogen_list[i*2+1]);
+          //printf("%d \n", total_waterOx_list[i].index());
+        }
       }
-      for(unsigned j=0; j<Natm-1; j++) {
-        for(unsigned k=0; k<NL_const_size+buffer; k++) {
-          for(unsigned i=0; i<listreduced.size(); i++) {
-            if(snn_list[j][k]==listreduced[i]){
-              AtomNumber atom_id;
-              snn_list[j][k]=atom_id.setIndex(i);
+  
+      if (solv_blocks == 3) { 
+        for(unsigned j=0; j<Natm-2; j++) {
+          for(unsigned k=0; k<NL_const_size+10; k++) {
+            for(unsigned i=0; i<listreduced.size(); i++) {
+              if(snn_list[j][k]==listreduced[i]){
+                AtomNumber atom_id;
+                snn_list[j][k]=atom_id.setIndex(i);
+              }
+              if(Hydrogen_nn_list[j][2*k]==listreduced[i]){
+                AtomNumber atom_id;
+                Hydrogen_nn_list[j][2*k]=atom_id.setIndex(i);
+              }
+              if(Hydrogen_nn_list[j][2*k+1]==listreduced[i]){
+                AtomNumber atom_id;
+                Hydrogen_nn_list[j][2*k+1]=atom_id.setIndex(i);
+              }
+            }
+          }
+        }
+      } else {
+        for(unsigned j=0; j<Natm-1; j++) {
+          for(unsigned k=0; k<NL_const_size+10; k++) {
+            for(unsigned i=0; i<listreduced.size(); i++) {
+              if (solv_blocks == 1) {
+                if(snn_list[j][k]==listreduced[i]){
+                  AtomNumber atom_id;
+                  snn_list[j][k]=atom_id.setIndex(i);
+                }
+              }
+              if (solv_blocks == 2) {
+                if(Hydrogen_nn_list[j][2*k]==listreduced[i]){
+                  AtomNumber atom_id;
+                  Hydrogen_nn_list[j][2*k]=atom_id.setIndex(i);
+                }
+                if(Hydrogen_nn_list[j][2*k+1]==listreduced[i]){
+                  AtomNumber atom_id;
+                  Hydrogen_nn_list[j][2*k+1]=atom_id.setIndex(i);
+                }
+              }
             }
           }
         }
@@ -1055,13 +1393,22 @@ void PIV::prepare() {
       int count_nl_loop=0;
       for(unsigned j=0; j<Natm-1; j++) {
         for(unsigned i=j+1; i<Natm; i++) {
-          if(i==Natm-1) {
-            delete nl_small[count_nl_loop];
-            nl_small[count_nl_loop] = new NeighborList(snn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
+          if (count_nl_loop < Nlist) {
+            // Only update solvent blocks (included IDs are dynamic)
+            if(atype[i] == "OW") {
+              delete nl_small[count_nl_loop];
+              nl_small[count_nl_loop] = new NeighborList(snn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
+              //printf("nl_small[%d] size: %d\n", count_nl_loop, nl_small[count_nl_loop].size());
+            } else if (atype[i] == "HW1") {
+              delete nl_small[count_nl_loop];
+              nl_small[count_nl_loop] = new NeighborList(Hydrogen_nn_list[j],Plist[j],true,false,pbc,getPbc(),comm,nl_cut[count_nl_loop],nl_st[count_nl_loop]);
+            }
           }
           count_nl_loop += 1;
         }
       }
+
+      
       delete nlreduced;
       nlreduced= new NeighborList(listreduced,true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
 
@@ -1069,10 +1416,28 @@ void PIV::prepare() {
       ann_deriv.resize(listreduced.size());
       //printf("ann_deriv size: %d\n", ann_deriv.size());
       int total_count=0;
-      for(unsigned j=0; j<Natm-1; j++) {
-        total_count += j;
+
+      if (solv_blocks == 3) {
+        for(unsigned j=0; j<Natm-2; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-2)*3;
+      } else if (solv_blocks == 2) {
+        for(unsigned j=0; j<Natm-1; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-1)*2;
+      } else if (solv_blocks == 1) {
+        for(unsigned j=0; j<Natm-1; j++) {
+          total_count += j;
+        }
+        total_count += NL_const_size*(Natm-1);
+      } else {
+        for(unsigned j=0; j<Natm; j++) {
+          total_count += j;
+        }
       }
-      total_count += NL_const_size*(Natm-1);
+
       for(unsigned i=0; i < listreduced.size(); i++) {
         ann_deriv[i].resize(total_count);
       }
@@ -1286,16 +1651,22 @@ void PIV::calculate()
           }
           int sb_count=0;
           int discards=0;
-          if(nl[j]->size() >= NL_const_size) {
+          // Account for twice as many hydrogen as oxygen
+          int max_solv_atoms = NL_const_size;
+          if (std::find(NList_HW_blocks.begin(), NList_HW_blocks.end(), j) != NList_HW_blocks.end()) {
+            max_solv_atoms = 2*NL_const_size;
+          }
+
+          if(nl[j]->size() >= max_solv_atoms) {
             // Limit solvent blocks to NL_constant_size
             for(unsigned i=Nprec-1; i<0; i--) {
               if(OrdVec[i] != 0) {
                 sb_count += OrdVec[i];
               }
-              if(sb_count > NL_const_size) {
+              if(sb_count > max_solv_atoms) {
                 OrdVec[i] = 0;
-                if(sb_count - A0[i].size() < NL_const_size) {
-                  discards = sb_count - NL_const_size;
+                if(sb_count - A0[i].size() < max_solv_atoms) {
+                  discards = sb_count - max_solv_atoms;
                   A0[i].resize(A0[i].size()-discards);
                   A1[i].resize(A1[i].size()-discards);
                 } else {
@@ -1341,16 +1712,22 @@ void PIV::calculate()
           }
           int sb_count=0;
           int discards=0;
-          if(nl_small[j]->size() >= NL_const_size) {
+
+          int max_solv_atoms = NL_const_size;
+          if (std::find(NList_HW_blocks.begin(), NList_HW_blocks.end(), j) != NList_HW_blocks.end()) {
+            max_solv_atoms = 2*NL_const_size;
+          }
+
+          if(nl_small[j]->size() >= max_solv_atoms) {
             // Limit solvent blocks to NL_constant_size
             for(unsigned i=Nprec-1; i<0; i--) {
               if(OrdVec[i] != 0) {
                 sb_count += OrdVec[i];
               }
-              if(sb_count > NL_const_size) {
+              if(sb_count > max_solv_atoms) {
                 OrdVec[i] = 0;
-                if(sb_count - A0[i].size() < NL_const_size) {
-                  discards = sb_count - NL_const_size;
+                if(sb_count - A0[i].size() < max_solv_atoms) {
+                  discards = sb_count - max_solv_atoms;
                   A0[i].resize(A0[i].size()-discards);
                   A1[i].resize(A1[i].size()-discards);
                 } else {
@@ -1488,8 +1865,14 @@ void PIV::calculate()
       // i.e. the closest solute-solvent interactions. This is irrelevant for the solute-solute interactions. 
       int start_val=0;
       // This sets the start value to be NL_const_size away from the end of the sorted block to choose the desired interactions.
-      if(limit > NL_const_size) {
-        start_val = limit - NL_const_size;
+      
+      int max_solv_atoms = NL_const_size;
+      if (std::find(NList_HW_blocks.begin(), NList_HW_blocks.end(), j) != NList_HW_blocks.end()) {
+        max_solv_atoms = 2*NL_const_size;
+      }
+
+      if(limit > max_solv_atoms) {
+        start_val = limit - max_solv_atoms;
       }
       if (writepivtraj) {
         for(unsigned i=start_val; i<limit; i++) {
@@ -1567,8 +1950,14 @@ void PIV::calculate()
       unsigned limit=0;
       limit = cPIV[j].size();
       int start_val=0;
-      if(limit > NL_const_size) {
-        start_val = limit - NL_const_size;
+
+      int max_solv_atoms = NL_const_size;
+      if (std::find(NList_HW_blocks.begin(), NList_HW_blocks.end(), j) != NList_HW_blocks.end()) {
+        max_solv_atoms = 2*NL_const_size;
+      }
+      
+      if(limit > max_solv_atoms) {
+        start_val = limit - max_solv_atoms;
       }
       for(unsigned i=start_val; i<limit; i++) {
         unsigned i0=0;
@@ -1706,8 +2095,14 @@ void PIV::calculate()
     unsigned limit=0;
     limit = cPIV[j].size();
     int start_val=0;
-    if(limit > NL_const_size) {
-      start_val = limit - NL_const_size;
+
+    int max_solv_atoms = NL_const_size;
+    if (std::find(NList_HW_blocks.begin(), NList_HW_blocks.end(), j) != NList_HW_blocks.end()) {
+      max_solv_atoms = 2*NL_const_size;
+    }
+
+    if(limit > max_solv_atoms) {
+      start_val = limit - max_solv_atoms;
     }
     for (int i = start_val; i < limit; i++) {
       string comp = "ELEMENT-" + to_string(total_count);
