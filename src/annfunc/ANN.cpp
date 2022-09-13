@@ -31,19 +31,13 @@ SOFTWARE.
 #include "tools/Pbc.h"                                                                                                  
 #include "tools/Stopwatch.h"                                                                                            
                                                                                                                         
-#include "core/PlumedMain.h" // -- SD
 #include "function/Function.h"
 #include "function/ActionRegister.h"
-#include "core/ActionSet.h" // -- SD
 #include "cassert"
-
-#include "piv_vec/PIV.h" // -- SD
 
 #include <string>
 #include <cmath>
 #include <iostream>
-#include <fstream> // -- SD
-#include <stdio.h> // -- SD
 
 using namespace std;
 
@@ -115,11 +109,10 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
-  vector<vector<double> > piv_deriv; // \sum_n=1toD dv_n/dv_d -- SD
-  //std::string piv_deriv_file; // -- SD
-  //bool piv_input; // -- SD
-  //piv::PIV* pivclass; // -- SD
-  std::string piv_action_label;
+  vector<vector<double> > expectation_of_batchnorm_layer; // -- SD
+  vector<vector<double> > variance_of_batchnorm_layer; // -- SD
+  vector<vector<double> > gamma_of_batchnorm_layer; // -- SD
+  vector<vector<double> > beta_of_batchnorm_layer; // -- SD
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -142,10 +135,18 @@ void ANN::registerKeywords( Keywords& keys ) {
            "WEIGHTS1 represents flattened weight array connecting layer 1 and layer 2, ...");
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
-  keys.add("optional", "PIV_DERIV_FILE", 
-           "File name that contains the PIV derivatives \\$\sum_{n=1}^{D} \frac{\rho v_{n}}{\rho v_{d}}$\\."); // -- SD
-  //keys.addFlag("PIVInput", false, "Flag to check if input is PIV"); // -- SD
-  keys.add("optional", "PIVLABEL", "Label name of PIV"); // -- SD
+  keys.add("numbered", "EXPECTATIONS", "expectations array of batch norm for each layer of the neural "
+           "network, EXPECTATIONS0 represent expectations array for layer 1, EXPECTATIONS1 representation "
+           "expectations array for layer 2, ...");
+  keys.add("numbered", "VARIANCES", "variances array of batch norm for each layer of the neural "
+          "network, VARIANCES0 represent variances array for layer 1, VARIANCES1 representation "
+          "variances array for layer 2, ...");
+  keys.add("numbered", "BETAS", "betas array of batch norm for each layer of the neural "
+          "network, BETAS0 represent betas array for layer 1, BETAS1 representation "
+          "betas array for layer 2, ...");
+  keys.add("numbered", "GAMMAS", "gammas array of batch norm for each layer of the neural "
+          "network, GAMMAS0 represent gammas array for layer 1, GAMMAS1 representation "
+          "gammas array for layer 2, ...");
   // since v2.2 plumed requires all components be registered
   keys.addOutputComponent("node", "default", "components of ANN outputs");
 }
@@ -171,6 +172,8 @@ ANN::ANN(const ActionOptions&ao):
     log.printf("%d, ", ss);
   }
   vector<double> temp_single_coeff, temp_single_bias;
+  vector<double> temp_single_batchnorm_expectations, temp_single_batchnorm_variances; // -- SD
+  vector<double> temp_single_batchnorm_gammas, temp_single_batchnorm_betas; // -- SD
   for (int ii = 0; ; ii ++) {
     // parse coeff
     if( !parseNumberedVector("WEIGHTS", ii, temp_single_coeff) ) {
@@ -187,92 +190,35 @@ ANN::ANN(const ActionOptions&ao):
     biases.push_back(temp_single_bias);
     log.printf("size of temp_single_bias = %lu\n", temp_single_bias.size());
     log.printf("size of biases = %lu\n", biases.size());
-  }
-
-  // initialize piv_deriv to 1 (default --- x,y,z as input. otherwise read from file). -- SD
-  // Same size as number of nodes in input layer -- num_nodes[0]. 
-  piv_deriv.resize(num_nodes[0]);
-  for (unsigned j = 0; j < piv_deriv.size(); j++){
-    piv_deriv[j].resize(num_nodes[0]);
-  }
-
-  for (unsigned j = 0; j < piv_deriv.size(); j++){
-    for (unsigned i = 0; i < piv_deriv[j].size(); i++){
-      piv_deriv[j][i] = 1.0;
+    // parse expectations of batch norm layer -- SD
+    if( !parseNumberedVector("EXPECTATIONS", ii, temp_single_batchnorm_expectations) ) {
+      temp_single_batchnorm_expectations=expectations_of_batchnorm_layer[ii-1];
     }
+    expectations_of_batchnorm_layer.push_back(temp_batchnorm_single_expectations);
+    log.printf("size of temp_batchnorm_single_expectations = %lu\n", temp_batchnorm_single_expectations.size());
+    log.printf("size of expectations_of_batchnorm_layer = %lu\n", expectations_of_batchnorm_layer.size());
+    // parse variances of batch norm layer -- SD
+    if( !parseNumberedVector("VARIANCES", ii, temp_single_batchnorm_variances) ) {
+      temp_single_batchnorm_variances=variances_of_batchnorm_layer[ii-1];
+    }
+    variances_of_batchnorm_layer.push_back(temp_batchnorm_single_variances);
+    log.printf("size of temp_batchnorm_single_variances = %lu\n", temp_batchnorm_single_variances.size());
+    log.printf("size of variances_of_batchnorm_layer = %lu\n", variances_of_batchnorm_layer.size());
+    // parse gammas of batch norm layer -- SD
+    if( !parseNumberedVector("GAMMAS", ii, temp_single_batchnorm_gammas) ) {
+      temp_single_batchnorm_gammas=gammas_of_batchnorm_layer[ii-1];
+    }
+    gammas_of_batchnorm_layer.push_back(temp_batchnorm_single_gammas);
+    log.printf("size of temp_batchnorm_single_gammas = %lu\n", temp_batchnorm_single_gammas.size());
+    log.printf("size of gammas_of_batchnorm_layer = %lu\n", gammas_of_batchnorm_layer.size());
+    // parse betas of batch norm layer -- SD
+    if( !parseNumberedVector("BETAS", ii, temp_single_batchnorm_betas) ) {
+      temp_single_batchnorm_betas=betas_of_batchnorm_layer[ii-1];
+    }
+    betas_of_batchnorm_layer.push_back(temp_batchnorm_single_betas);
+    log.printf("size of temp_batchnorm_single_betas = %lu\n", temp_batchnorm_single_betas.size());
+    log.printf("size of betas_of_batchnorm_layer = %lu\n", betas_of_batchnorm_layer.size());
   }
-
-  //parse("PIV_DERIV_FILE", piv_deriv_file);
-  
-  //parseFlag("PIVInput", piv_input);
-  parse("PIVLABEL", piv_action_label);
-
-  //if(piv_input){
-  //  std::string piv_action_label; 
-  //  parse("PIVLABEL", piv_action_label);
-  //  pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );    
-    //if( pivclass ) {
-    //   // error( piv_action_label + " is emtpy.");            
-    //  addDependency( pivclass ); 
-    //  auto name = pivclass->getLabel();
-    //  printf("\n\n\n\n Name: %s \n\n\n\n", name.c_str());
-    //  piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv); 
-    //}
-  //}
-
-  //for (unsigned j = 0; j < piv_deriv.size(); j++){                                                                      
-  //  for (unsigned i = 0; i < piv_deriv[j].size(); i++){                                                                 
-  //    printf("piv_deriv: %f \t", piv_deriv[j][i]);
-  //  }
-  //  printf("\n");    
-  //}
-
-  //if(piv_deriv_file.length()!=0){
-  //  ifstream fp(piv_deriv_file);
-
-  //  if (fp) {
-  //    //read derivatives to vector
-  //    log.printf("Reading PIV derivatives file: %s\n", piv_deriv_file.c_str());
-  //    for (int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++) {
-  //      for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++) {
-  //        fp >> piv_deriv[npiv_size][dpiv_size];
-  //        if (!fp) {
-  //          error("Error while reading PIV derivatives file");
-  //        }
-  //      }
-  //    }
-
-  //    //double piv_deriv_element = 0.0;
-  //    //int ncountPIVelements = 0, dcountPIVelements = 0;
-  //    //while (fp >> piv_deriv_element){
-  //    //  piv_deriv[ncountPIVelements][dcountPIVelements] = piv_deriv_element;
-  //    //  dcountPIVelements += 1;
-  //    //  if (piv_deriv_element == "") {
-  //    //    ncountPIVelements += 1;
-  //    //  }
-  //    //  //if (countPIVelements > num_nodes[0]){
-  //    //  //    error("Size of piv derivatives file > number of nodes in the input layer.");
-  //    //  //}
-  //    //}
-  //    //if (countPIVelements < num_nodes[0]){
-  //    //  error("Size of piv derivatives file < number of nodes in the input layer");
-  //    //}
-  //    fp.close();
-  //    
-  //    #ifdef DEBUG_PIVFILE
-  //      cout << "PIV Derivative file: ";
-  //      for(int npiv_size = 0; npiv_size < piv_deriv.size(); npiv_size++){
-  //        for (int dpiv_size = 0; dpiv_size < piv_deriv[npiv_size].size(); dpiv_size++){
-  //          cout << piv_deriv[npiv_size][dpiv_size] << " ";
-  //        } 
-  //        cout << endl;
-  //      }
-  //    #endif
-
-  //  } else {
-  //    error("Error PIV derivatives file seems to be not defined.");
-  //  }
-  //}
 
   if(getNumberOfArguments() != num_nodes[0]) {
     error("Number of arguments is wrong");
@@ -311,6 +257,39 @@ ANN::ANN(const ActionOptions&ao):
     }
     log.printf("\n");
   }
+  // check expectations of batch norm layer -- SD
+  for (int ii = 0; ii < num_layers - 1; ii ++) {
+    log.printf("expectations %d = \n", ii);
+    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+      log.printf("%f ", expectations_of_batchnorm_layer[ii][jj]);
+    }
+    log.printf("\n");
+  }
+  // check variances of batch norm layer -- SD
+  for (int ii = 0; ii < num_layers - 1; ii ++) {
+    log.printf("variances %d = \n", ii);
+    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+      log.printf("%f ", variances_of_batchnorm_layer[ii][jj]);
+    }
+    log.printf("\n");
+  } 
+  // check gammas of batch norm layer -- SD
+  for (int ii = 0; ii < num_layers - 1; ii ++) {
+    log.printf("gammas %d = \n", ii);
+    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+      log.printf("%f ", gammas_of_batchnorm_layer[ii][jj]);
+    }
+    log.printf("\n");
+  } 
+  // check betas of batch norm layer -- SD
+  for (int ii = 0; ii < num_layers - 1; ii ++) {
+    log.printf("betas %d = \n", ii);
+    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+      log.printf("%f ", betas_of_batchnorm_layer[ii][jj]);
+    }
+    log.printf("\n");
+  } 
+
   log.printf("initialization ended\n");
   // create components
   for (int ii = 0; ii < num_nodes[num_layers - 1]; ii ++) {
@@ -344,6 +323,13 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
     else if (activations[ii - 1] == string("Tanh")) {
       for(int jj = 0; jj < num_nodes[ii]; jj ++) {
         output_of_each_layer[ii][jj] = tanh(input_of_each_layer[ii][jj]);
+      }
+    }
+    else if (activations[ii - 1] == string("BNTanh")) { // Added batch normalized Tanh -- SD
+      for(int jj = 0; jj < num_nodes[ii]; jj ++) {
+        output_of_each_layer[ii][jj] = (tanh(input_of_each_layer[ii][jj]) - expectation_of_batchnorm_layer[ii - 1][jj]) * \;
+                                       (gamma_of_batchnorm_layer[ii - 1][jj] / variance_of_batchnorm_layer[ii - 1][jj]);
+        output_of_each_layer[ii][jj] += beta_of_batchnorm_layer[ii -1][jj];
       }
     }
     else if (activations[ii-1] == string("ReLU")) { // Added ReLU -- SD      
@@ -448,32 +434,17 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
         derivatives_of_each_layer[jj][mm] = 0;
         for (int kk = 0; kk < num_nodes[jj + 1]; kk ++) {
           if (activations[jj] == string("Tanh")) {
-
-            // Changes to accomodate PIV inputs -- SD
-            if (jj != 0) {
-              // printf("tanh\n");
-              derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                   * coeff[jj][kk][mm] \
-                                                   * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
-            } else {
-              if(piv_action_label.length()!=0){
-                double weighted_piv_deriv_sum = 0.0;
-                // jj is 0
-                for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
-                  // \sum_d=1toD w_dg x \partial v_d/\partial v_n -- SD
-                  weighted_piv_deriv_sum += coeff[jj][kk][dd] \
-                                            * piv_deriv[mm][dd];  
-                }
-                // \sum_g=1toG.
-                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                     * weighted_piv_deriv_sum \
-                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
-              } else {
                 derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                      * coeff[jj][kk][mm] \
                                                      * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
-              }
-            }
+          }
+          else if (activatiosn[jj] == string("BNTanh")) { // support for batch normalized Tanh -- SD
+            // printf("tanh\n");
+            derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                 * coeff[jj][kk][mm] \
+                                                 * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]) \
+                                                 * (output_of_each_layer[jj + 1][kk])*gamma_of_batchnorm_layer[jj + 1][kk] \
+                                                 * (1/variance_of_batchnorm_layer[jj + 1][kk]);
           }
           else if (activations[jj] == string("Linear")) {
             // printf("linear\n");
@@ -521,26 +492,6 @@ void ANN::calculate() {
   for (int ii = 0; ii < num_nodes[0]; ii ++) {
     input_layer_data[ii] = getArgument(ii);
   }
-
-  //SD
-  if(piv_action_label.length()!=0){
-    auto pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );
-    if( pivclass ) {                                                                                                    
-      addDependency( pivclass ); // Is this required?
-      auto name = pivclass->getLabel();                                                                                 
-      //printf("\n\n\n\n Name: %s \n\n\n\n", name.c_str());                                                               
-      piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv);                                                                      
-    }
-  }  
-
-  // SD
-  //printf("Timestep: %d:\n", getStep());
-  //for (unsigned j = 0; j < piv_deriv.size(); j++){
-  //  for (unsigned i = 0; i < piv_deriv[j].size(); i++){
-  //    printf("piv_deriv: %f \t", piv_deriv[j][i]);
-  //  }
-  //  printf("\n");
-  //}
 
   calculate_output_of_each_layer(input_layer_data);
   vector<vector<double> > derivatives_of_each_layer;
