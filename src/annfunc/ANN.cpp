@@ -21,16 +21,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#include "colvar/Colvar.h"                                                                                              
-//#include "colvar/ActionRegister.h"                                                                                      
-//#include "core/PlumedMain.h"                                                                                            
-#include "core/ActionWithVirtualAtom.h"                                                                                 
-#include "tools/NeighborList.h"                                                                                         
-#include "tools/SwitchingFunction.h"                                                                                    
-#include "tools/PDB.h"                                                                                                  
-#include "tools/Pbc.h"                                                                                                  
-#include "tools/Stopwatch.h"                                                                                            
-                                                                                                                        
 #include "function/Function.h"
 #include "function/ActionRegister.h"
 #include "cassert"
@@ -38,6 +28,7 @@ SOFTWARE.
 #include <string>
 #include <cmath>
 #include <iostream>
+// #include <stdio.h>
 
 using namespace std;
 
@@ -109,10 +100,10 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
-  vector<vector<double> > expectation_of_batchnorm_layer; // -- SD
-  vector<vector<double> > variance_of_batchnorm_layer; // -- SD
-  vector<vector<double> > gamma_of_batchnorm_layer; // -- SD
-  vector<vector<double> > beta_of_batchnorm_layer; // -- SD
+  vector<vector<double> > expectation_of_batchnorm_layer; // expectaton in batch normalized activation function -- SD
+  vector<vector<double> > variance_of_batchnorm_layer; // variance in batch normalized activation function -- SD
+  vector<vector<double> > gamma_of_batchnorm_layer; // gamma in batch normalized activation function -- SD
+  vector<vector<double> > beta_of_batchnorm_layer; // beta in batch normalized activation function -- SD
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -172,8 +163,8 @@ ANN::ANN(const ActionOptions&ao):
     log.printf("%d, ", ss);
   }
   vector<double> temp_single_coeff, temp_single_bias;
-  vector<double> temp_single_batchnorm_expectations, temp_single_batchnorm_variances; // -- SD
-  vector<double> temp_single_batchnorm_gammas, temp_single_batchnorm_betas; // -- SD
+  vector<double> temp_single_batchnorm_expectations, temp_single_batchnorm_variances; // -- for batch norm. SD
+  vector<double> temp_single_batchnorm_gammas, temp_single_batchnorm_betas; // -- for batch norm. SD
   for (int ii = 0; ; ii ++) {
     // parse coeff
     if( !parseNumberedVector("WEIGHTS", ii, temp_single_coeff) ) {
@@ -194,29 +185,29 @@ ANN::ANN(const ActionOptions&ao):
     if( !parseNumberedVector("EXPECTATIONS", ii, temp_single_batchnorm_expectations) ) {
       temp_single_batchnorm_expectations=expectations_of_batchnorm_layer[ii-1];
     }
-    expectations_of_batchnorm_layer.push_back(temp_batchnorm_single_expectations);
-    log.printf("size of temp_batchnorm_single_expectations = %lu\n", temp_batchnorm_single_expectations.size());
+    expectations_of_batchnorm_layer.push_back(temp_single_batchnorm_expectations);
+    log.printf("size of temp_single_batchnorm_expectations = %lu\n", temp_single_batchnorm_expectations.size());
     log.printf("size of expectations_of_batchnorm_layer = %lu\n", expectations_of_batchnorm_layer.size());
     // parse variances of batch norm layer -- SD
     if( !parseNumberedVector("VARIANCES", ii, temp_single_batchnorm_variances) ) {
       temp_single_batchnorm_variances=variances_of_batchnorm_layer[ii-1];
     }
-    variances_of_batchnorm_layer.push_back(temp_batchnorm_single_variances);
-    log.printf("size of temp_batchnorm_single_variances = %lu\n", temp_batchnorm_single_variances.size());
+    variances_of_batchnorm_layer.push_back(temp_single_batchnorm_variances);
+    log.printf("size of temp_single_batchnorm_variances = %lu\n", temp_single_batchnorm_variances.size());
     log.printf("size of variances_of_batchnorm_layer = %lu\n", variances_of_batchnorm_layer.size());
     // parse gammas of batch norm layer -- SD
     if( !parseNumberedVector("GAMMAS", ii, temp_single_batchnorm_gammas) ) {
       temp_single_batchnorm_gammas=gammas_of_batchnorm_layer[ii-1];
     }
-    gammas_of_batchnorm_layer.push_back(temp_batchnorm_single_gammas);
-    log.printf("size of temp_batchnorm_single_gammas = %lu\n", temp_batchnorm_single_gammas.size());
+    gammas_of_batchnorm_layer.push_back(temp_single_batchnorm_gammas);
+    log.printf("size of temp_single_batchnorm_gammas = %lu\n", temp_single_batchnorm_gammas.size());
     log.printf("size of gammas_of_batchnorm_layer = %lu\n", gammas_of_batchnorm_layer.size());
     // parse betas of batch norm layer -- SD
     if( !parseNumberedVector("BETAS", ii, temp_single_batchnorm_betas) ) {
       temp_single_batchnorm_betas=betas_of_batchnorm_layer[ii-1];
     }
-    betas_of_batchnorm_layer.push_back(temp_batchnorm_single_betas);
-    log.printf("size of temp_batchnorm_single_betas = %lu\n", temp_batchnorm_single_betas.size());
+    betas_of_batchnorm_layer.push_back(temp_single_batchnorm_betas);
+    log.printf("size of temp_single_batchnorm_betas = %lu\n", temp_single_batchnorm_betas.size());
     log.printf("size of betas_of_batchnorm_layer = %lu\n", betas_of_batchnorm_layer.size());
   }
 
