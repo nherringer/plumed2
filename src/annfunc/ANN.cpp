@@ -33,9 +33,9 @@ SOFTWARE.
 using namespace std;
 
 // #define DEBUG
-#define DEBUG_LAYEROUTPUT
-#define DEBUG_FINALDERIVATIVES
-#define DEBUG_LAYERDERIVATIVES
+// #define DEBUG_LAYEROUTPUT
+// #define DEBUG_FINALDERIVATIVES
+// #define DEBUG_LAYERDERIVATIVES
 
 namespace PLMD {
 namespace function {
@@ -408,6 +408,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
   }
   // the use back propagation to calculate derivatives for previous layers
   int count_batch_norm = expectations_of_batchnorm_layer.size() - 1;
+  float tanh_output_batch_norm;
   for (int jj = num_nodes.size() - 2; jj >= 0; jj --) {
     if (activations[jj] == string("Circular")) {
       vector<double> temp_derivative_of_input_for_this_layer;
@@ -453,17 +454,22 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
         derivatives_of_each_layer[jj][mm] = 0;
         for (int kk = 0; kk < num_nodes[jj + 1]; kk ++) {
           if (activations[jj] == string("Tanh")) {
-                derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
-                                                     * coeff[jj][kk][mm] \
-                                                     * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
-          }
-          else if (activations[jj] == string("BNTanh")) { // support for batch normalized Tanh -- SD
             // printf("tanh\n");
             derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                  * coeff[jj][kk][mm] \
-                                                 * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]) \
-                                                 * (output_of_each_layer[jj + 1][kk] \
-                                                 * gammas_of_batchnorm_layer[count_batch_norm][kk]) \
+                                                 * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
+          }
+          else if (activations[jj] == string("BNTanh")) { // support for batch normalized Tanh -- SD
+            // printf("bntanh\n");
+            tanh_output_batch_norm = ( (output_of_each_layer[jj + 1][kk] - betas_of_batchnorm_layer[count_batch_norm][kk] ) \
+                                     * variances_of_batchnorm_layer[count_batch_norm][kk] \
+                                     * (1/gammas_of_batchnorm_layer[count_batch_norm][kk]) ) \
+                                     + expectations_of_batchnorm_layer[count_batch_norm][kk];
+            
+            derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
+                                                 * coeff[jj][kk][mm] \
+                                                 * (1 - tanh_output_batch_norm * tanh_output_batch_norm) \
+                                                 * (gammas_of_batchnorm_layer[count_batch_norm][kk]) \
                                                  * (1/variances_of_batchnorm_layer[count_batch_norm][kk]);
           }
           else if (activations[jj] == string("Linear")) {
