@@ -33,10 +33,9 @@ SOFTWARE.
 using namespace std;
 
 // #define DEBUG
-//#define DEBUG_2
-//#define DEBUG_3
-//#define DEBUG_LAYERDERIVATIVES
-//#define DEBUG_PIVFILE
+#define DEBUG_LAYEROUTPUT
+#define DEBUG_FINALDERIVATIVES
+#define DEBUG_LAYERDERIVATIVES
 
 namespace PLMD {
 namespace function {
@@ -100,10 +99,11 @@ private:
   vector<vector<double> > output_of_each_layer;
   vector<vector<double> > input_of_each_layer;
   vector<double** > coeff;  // weight matrix arrays, reshaped from "weights"
-  vector<vector<double> > expectation_of_batchnorm_layer; // expectaton in batch normalized activation function -- SD
-  vector<vector<double> > variance_of_batchnorm_layer; // variance in batch normalized activation function -- SD
-  vector<vector<double> > gamma_of_batchnorm_layer; // gamma in batch normalized activation function -- SD
-  vector<vector<double> > beta_of_batchnorm_layer; // beta in batch normalized activation function -- SD
+  vector<vector<double> > expectations_of_batchnorm_layer; // expectaton in batch normalized activation function -- SD
+  vector<vector<double> > variances_of_batchnorm_layer; // variance in batch normalized activation function -- SD
+  vector<vector<double> > gammas_of_batchnorm_layer; // gamma in batch normalized activation function -- SD
+  vector<vector<double> > betas_of_batchnorm_layer; // beta in batch normalized activation function -- SD
+  bool apply_batch_norm;
 
 public:
   static void registerKeywords( Keywords& keys );
@@ -126,6 +126,8 @@ void ANN::registerKeywords( Keywords& keys ) {
            "WEIGHTS1 represents flattened weight array connecting layer 1 and layer 2, ...");
   keys.add("numbered", "BIASES", "bias array for each layer of the neural network, "
            "BIASES0 represents bias array for layer 1, BIASES1 represents bias array for layer 2, ...");
+  keys.addFlag("APPLY_BATCH_NORM", false, "Set to TRUE if you want to apply batch normalization and then pass "
+               " EXPECTATIONS, VARIANCES, GAMMAS and BETA ");
   keys.add("numbered", "EXPECTATIONS", "expectations array of batch norm for each layer of the neural "
            "network, EXPECTATIONS0 represent expectations array for layer 1, EXPECTATIONS1 representation "
            "expectations array for layer 2, ...");
@@ -154,6 +156,7 @@ ANN::ANN(const ActionOptions&ao):
   coeff = vector<double** >(num_layers - 1);
   parseVector("NUM_NODES", num_nodes);
   parseVector("ACTIVATIONS", activations);
+  parseFlag("APPLY_BATCH_NORM", apply_batch_norm);
   log.printf("\nactivations = ");
   for (auto ss: activations) {
     log.printf("%s, ", ss.c_str());
@@ -165,6 +168,7 @@ ANN::ANN(const ActionOptions&ao):
   vector<double> temp_single_coeff, temp_single_bias;
   vector<double> temp_single_batchnorm_expectations, temp_single_batchnorm_variances; // -- for batch norm. SD
   vector<double> temp_single_batchnorm_gammas, temp_single_batchnorm_betas; // -- for batch norm. SD
+  int count_batch_norm = 0;
   for (int ii = 0; ; ii ++) {
     // parse coeff
     if( !parseNumberedVector("WEIGHTS", ii, temp_single_coeff) ) {
@@ -181,34 +185,37 @@ ANN::ANN(const ActionOptions&ao):
     biases.push_back(temp_single_bias);
     log.printf("size of temp_single_bias = %lu\n", temp_single_bias.size());
     log.printf("size of biases = %lu\n", biases.size());
-    // parse expectations of batch norm layer -- SD
-    if( !parseNumberedVector("EXPECTATIONS", ii, temp_single_batchnorm_expectations) ) {
-      temp_single_batchnorm_expectations=expectations_of_batchnorm_layer[ii-1];
+    if (apply_batch_norm and activations[ii] == string("BNTanh") ) {
+      // parse expectations of batch norm layer -- SD
+      if( !parseNumberedVector("EXPECTATIONS", ii, temp_single_batchnorm_expectations) ) {
+        temp_single_batchnorm_expectations=expectations_of_batchnorm_layer[count_batch_norm-1];
+      }
+      expectations_of_batchnorm_layer.push_back(temp_single_batchnorm_expectations);
+      log.printf("size of temp_single_batchnorm_expectations = %lu\n", temp_single_batchnorm_expectations.size());
+      log.printf("size of expectations_of_batchnorm_layer = %lu\n", expectations_of_batchnorm_layer.size());
+      // parse variances of batch norm layer -- SD
+      if( !parseNumberedVector("VARIANCES", ii, temp_single_batchnorm_variances) ) {
+        temp_single_batchnorm_variances=variances_of_batchnorm_layer[count_batch_norm-1];
+      }
+      variances_of_batchnorm_layer.push_back(temp_single_batchnorm_variances);
+      log.printf("size of temp_single_batchnorm_variances = %lu\n", temp_single_batchnorm_variances.size());
+      log.printf("size of variances_of_batchnorm_layer = %lu\n", variances_of_batchnorm_layer.size());
+      // parse gammas of batch norm layer -- SD
+      if( !parseNumberedVector("GAMMAS", ii, temp_single_batchnorm_gammas) ) {
+        temp_single_batchnorm_gammas=gammas_of_batchnorm_layer[count_batch_norm-1];
+      }
+      gammas_of_batchnorm_layer.push_back(temp_single_batchnorm_gammas);
+      log.printf("size of temp_single_batchnorm_gammas = %lu\n", temp_single_batchnorm_gammas.size());
+      log.printf("size of gammas_of_batchnorm_layer = %lu\n", gammas_of_batchnorm_layer.size());
+      // parse betas of batch norm layer -- SD
+      if( !parseNumberedVector("BETAS", ii, temp_single_batchnorm_betas) ) {
+        temp_single_batchnorm_betas=betas_of_batchnorm_layer[count_batch_norm-1];
+      }
+      betas_of_batchnorm_layer.push_back(temp_single_batchnorm_betas);
+      log.printf("size of temp_single_batchnorm_betas = %lu\n", temp_single_batchnorm_betas.size());
+      log.printf("size of betas_of_batchnorm_layer = %lu\n", betas_of_batchnorm_layer.size());
+      count_batch_norm += 1;
     }
-    expectations_of_batchnorm_layer.push_back(temp_single_batchnorm_expectations);
-    log.printf("size of temp_single_batchnorm_expectations = %lu\n", temp_single_batchnorm_expectations.size());
-    log.printf("size of expectations_of_batchnorm_layer = %lu\n", expectations_of_batchnorm_layer.size());
-    // parse variances of batch norm layer -- SD
-    if( !parseNumberedVector("VARIANCES", ii, temp_single_batchnorm_variances) ) {
-      temp_single_batchnorm_variances=variances_of_batchnorm_layer[ii-1];
-    }
-    variances_of_batchnorm_layer.push_back(temp_single_batchnorm_variances);
-    log.printf("size of temp_single_batchnorm_variances = %lu\n", temp_single_batchnorm_variances.size());
-    log.printf("size of variances_of_batchnorm_layer = %lu\n", variances_of_batchnorm_layer.size());
-    // parse gammas of batch norm layer -- SD
-    if( !parseNumberedVector("GAMMAS", ii, temp_single_batchnorm_gammas) ) {
-      temp_single_batchnorm_gammas=gammas_of_batchnorm_layer[ii-1];
-    }
-    gammas_of_batchnorm_layer.push_back(temp_single_batchnorm_gammas);
-    log.printf("size of temp_single_batchnorm_gammas = %lu\n", temp_single_batchnorm_gammas.size());
-    log.printf("size of gammas_of_batchnorm_layer = %lu\n", gammas_of_batchnorm_layer.size());
-    // parse betas of batch norm layer -- SD
-    if( !parseNumberedVector("BETAS", ii, temp_single_batchnorm_betas) ) {
-      temp_single_batchnorm_betas=betas_of_batchnorm_layer[ii-1];
-    }
-    betas_of_batchnorm_layer.push_back(temp_single_batchnorm_betas);
-    log.printf("size of temp_single_batchnorm_betas = %lu\n", temp_single_batchnorm_betas.size());
-    log.printf("size of betas_of_batchnorm_layer = %lu\n", betas_of_batchnorm_layer.size());
   }
 
   if(getNumberOfArguments() != num_nodes[0]) {
@@ -248,38 +255,56 @@ ANN::ANN(const ActionOptions&ao):
     }
     log.printf("\n");
   }
-  // check expectations of batch norm layer -- SD
-  for (int ii = 0; ii < num_layers - 1; ii ++) {
-    log.printf("expectations %d = \n", ii);
-    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
-      log.printf("%f ", expectations_of_batchnorm_layer[ii][jj]);
+  if(apply_batch_norm) {
+    // check expectations of batch norm layer -- SD
+    int count_batch_norm = 0;
+    for (int ii = 0; ii < num_layers - 1; ii ++) {
+      if (activations[ii] == string("BNTanh") ){
+        log.printf("expectations %d = \n", ii);
+        for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+          log.printf("%f ", expectations_of_batchnorm_layer[count_batch_norm][jj]);
+        }
+        count_batch_norm += 1;
+        log.printf("\n");
+      }
     }
-    log.printf("\n");
+    // check variances of batch norm layer -- SD
+    count_batch_norm = 0;
+    for (int ii = 0; ii < num_layers - 1; ii ++) {
+      if (activations[ii] == string("BNTanh") ){
+        log.printf("variances %d = \n", ii);
+        for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+          log.printf("%f ", variances_of_batchnorm_layer[count_batch_norm][jj]);
+        }
+      count_batch_norm += 1;
+      log.printf("\n");
+      }
+    } 
+    // check gammas of batch norm layer -- SD
+    count_batch_norm = 0;
+    for (int ii = 0; ii < num_layers - 1; ii ++) {
+      if (activations[ii] == string("BNTanh") ){
+        log.printf("gammas %d = \n", ii);
+        for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+          log.printf("%f ", gammas_of_batchnorm_layer[count_batch_norm][jj]);
+        }
+      count_batch_norm += 1;
+      log.printf("\n");
+      }
+    } 
+    // check betas of batch norm layer -- SD
+    count_batch_norm = 0;
+    for (int ii = 0; ii < num_layers - 1; ii ++) {
+      if (activations[ii] == string("BNTanh") ) {
+        log.printf("betas %d = \n", ii);
+        for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
+          log.printf("%f ", betas_of_batchnorm_layer[count_batch_norm][jj]);
+        }
+      count_batch_norm += 1;
+      log.printf("\n");
+      }
+    }
   }
-  // check variances of batch norm layer -- SD
-  for (int ii = 0; ii < num_layers - 1; ii ++) {
-    log.printf("variances %d = \n", ii);
-    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
-      log.printf("%f ", variances_of_batchnorm_layer[ii][jj]);
-    }
-    log.printf("\n");
-  } 
-  // check gammas of batch norm layer -- SD
-  for (int ii = 0; ii < num_layers - 1; ii ++) {
-    log.printf("gammas %d = \n", ii);
-    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
-      log.printf("%f ", gammas_of_batchnorm_layer[ii][jj]);
-    }
-    log.printf("\n");
-  } 
-  // check betas of batch norm layer -- SD
-  for (int ii = 0; ii < num_layers - 1; ii ++) {
-    log.printf("betas %d = \n", ii);
-    for (int jj = 0; jj < num_nodes[ii + 1]; jj ++) {
-      log.printf("%f ", betas_of_batchnorm_layer[ii][jj]);
-    }
-    log.printf("\n");
-  } 
 
   log.printf("initialization ended\n");
   // create components
@@ -294,6 +319,7 @@ ANN::ANN(const ActionOptions&ao):
 void ANN::calculate_output_of_each_layer(const vector<double>& input) {
   // first layer
   output_of_each_layer[0] = input;
+  int count_batch_norm = 0;
   // following layers
   for(int ii = 1; ii < num_nodes.size(); ii ++) {
     output_of_each_layer[ii].resize(num_nodes[ii]);
@@ -318,10 +344,11 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
     }
     else if (activations[ii - 1] == string("BNTanh")) { // Added batch normalized Tanh -- SD
       for(int jj = 0; jj < num_nodes[ii]; jj ++) {
-        output_of_each_layer[ii][jj] = (tanh(input_of_each_layer[ii][jj]) - expectation_of_batchnorm_layer[ii - 1][jj]) * \;
-                                       (gamma_of_batchnorm_layer[ii - 1][jj] / variance_of_batchnorm_layer[ii - 1][jj]);
-        output_of_each_layer[ii][jj] += beta_of_batchnorm_layer[ii -1][jj];
+        output_of_each_layer[ii][jj] = (tanh(input_of_each_layer[ii][jj]) - expectations_of_batchnorm_layer[count_batch_norm][jj]) * \
+                                       (gammas_of_batchnorm_layer[count_batch_norm][jj] / variances_of_batchnorm_layer[count_batch_norm][jj]);
+        output_of_each_layer[ii][jj] += betas_of_batchnorm_layer[count_batch_norm][jj];
       }
+      count_batch_norm += 1;
     }
     else if (activations[ii-1] == string("ReLU")) { // Added ReLU -- SD      
       for(int jj = 0; jj < num_nodes[ii]; ii ++) {
@@ -346,7 +373,7 @@ void ANN::calculate_output_of_each_layer(const vector<double>& input) {
       return;
     }
   }
-#ifdef DEBUG_2
+#ifdef DEBUG_LAYEROUTPUT
   // print out the result for debugging
   printf("output_of_each_layer = \n");
   // for (int ii = num_layers - 1; ii < num_layers; ii ++) {
@@ -380,6 +407,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
     }
   }
   // the use back propagation to calculate derivatives for previous layers
+  int count_batch_norm = expectations_of_batchnorm_layer.size() - 1;
   for (int jj = num_nodes.size() - 2; jj >= 0; jj --) {
     if (activations[jj] == string("Circular")) {
       vector<double> temp_derivative_of_input_for_this_layer;
@@ -429,13 +457,14 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                      * coeff[jj][kk][mm] \
                                                      * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
           }
-          else if (activatiosn[jj] == string("BNTanh")) { // support for batch normalized Tanh -- SD
+          else if (activations[jj] == string("BNTanh")) { // support for batch normalized Tanh -- SD
             // printf("tanh\n");
             derivatives_of_each_layer[jj][mm] += derivatives_of_each_layer[jj + 1][kk] \
                                                  * coeff[jj][kk][mm] \
                                                  * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]) \
-                                                 * (output_of_each_layer[jj + 1][kk])*gamma_of_batchnorm_layer[jj + 1][kk] \
-                                                 * (1/variance_of_batchnorm_layer[jj + 1][kk]);
+                                                 * (output_of_each_layer[jj + 1][kk] \
+                                                 * gammas_of_batchnorm_layer[count_batch_norm][kk]) \
+                                                 * (1/variances_of_batchnorm_layer[count_batch_norm][kk]);
           }
           else if (activations[jj] == string("Linear")) {
             // printf("linear\n");
@@ -460,6 +489,9 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
           }
         }
       }
+    }
+    if (activations[jj] == string("BNTanh")){
+      count_batch_norm -= 1;
     }
   }
 #ifdef DEBUG_LAYERDERIVATIVES
@@ -495,7 +527,7 @@ void ANN::calculate() {
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
       value_new -> setDerivative(jj, derivatives_of_each_layer[0][jj]); // TODO: setDerivative or addDerivative?
     }
-#ifdef DEBUG_3
+#ifdef DEBUG_FINALDERIVATIVES
     printf("derivatives = ");
     for (int jj = 0; jj < num_nodes[0]; jj ++) {
       printf("%f ", value_new -> getDerivative(jj));
