@@ -521,7 +521,7 @@ void ANN::calculate() {
   for (int ii = 0; ii < num_nodes[0]; ii ++) {
     input_layer_data[ii] = getArgument(ii);
   }
-
+  
   calculate_output_of_each_layer(input_layer_data);
   vector<vector<double> > derivatives_of_each_layer;
 

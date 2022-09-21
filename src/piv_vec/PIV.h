@@ -84,7 +84,7 @@ private:
   // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
   bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
   // -- SD flag for writing a single file containing PIV values when using plumed driver.
-  bool writepivtraj;
+  bool writepivtraj, writestride;
   // -- SD variables to control output PIV and ANN PIV derivative file during simulation.
   int writepivstride, writeannstride;
   // -- SD variables in prepare() function.
