@@ -456,7 +456,7 @@ void ANN::back_prop(vector<vector<double> >& derivatives_of_each_layer, int inde
                                                    * coeff[jj][kk][mm] \
                                                    * (1 - output_of_each_layer[jj + 1][kk] * output_of_each_layer[jj + 1][kk]);
             } else {
-              if(piv_action_label.length()!=0){
+              if(piv_action_label.length()==0){
                 double weighted_piv_deriv_sum = 0.0;
                 // jj is 0
                 for (int dd = 0; dd < num_nodes[jj]; dd ++) { 
@@ -523,15 +523,15 @@ void ANN::calculate() {
   }
 
   //SD
-  if(piv_action_label.length()!=0){
-    auto pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );
-    if( pivclass ) {                                                                                                    
-      addDependency( pivclass ); // Is this required?
-      auto name = pivclass->getLabel();                                                                                 
+  //if(piv_action_label.length()!=0){
+  //  auto pivclass =  plumed.getActionSet().selectWithLabel<piv::PIV*>( piv_action_label );
+  //  if( pivclass ) {                                                                                                    
+  //    addDependency( pivclass ); // Is this required?
+  //    auto name = pivclass->getLabel();                                                                                 
       //printf("\n\n\n\n Name: %s \n\n\n\n", name.c_str());                                                               
-      piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv);                                                                      
-    }
-  }  
+  //    piv_deriv = pivclass->get_ann_sum_derivative( ); //piv_deriv);                                                                      
+  //  }
+  //}  
 
   // SD
   //printf("Timestep: %d:\n", getStep());
