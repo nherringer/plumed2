@@ -43,6 +43,8 @@ namespace piv
 /*
 Calculates the PIV-distance.
 
+******************WARNING: ONLYDIRECT FUNCTIONALITY HAS ONLY BEEN TESTED FOR AR13**********************************
+
 PIV distance is the squared Cartesian distance between the PIV \cite gallet2013structural \cite pipolo2017navigating
 associated to the configuration of the system during the dynamics and a reference configuration provided
 as input (PDB file format).
@@ -517,22 +519,22 @@ PIV::PIV(const ActionOptions&ao):
           comatm[Pind0[Pind]-1].push_back(anum);
         }
       }
-      else if(direct){
-        if( ( (atype[j]=="C1") && (Pname=="C12") ) || ( (atype[j]=="C22") && (Pname=="C43") ) || ( (atype[j]=="C35") && (Pname=="C56") ) )  {
-          if(Pind0[Pind]==0) {
-            // adding the atomnumber to the atom/COM list for pairs
-            // SD local variable of type AtomNumber. Its value is set using countIndex.
-            AtomNumber ati;
-            ati.setIndex(countIndex);
-            Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
-            Pind0[Pind]=aind+1;
-            oind=Pind;
-            countIndex += 1;
-          }
-          // adding the atomnumber to list of atoms for every COM/Atoms
-          comatm[Pind0[Pind]-1].push_back(anum);
-        }
-      }
+      // else if(direct){
+      //   if( ( (atype[j]=="C1") && (Pname=="C12") ) || ( (atype[j]=="C22") && (Pname=="C43") ) || ( (atype[j]=="C35") && (Pname=="C56") ) )  {
+      //     if(Pind0[Pind]==0) {
+      //       // adding the atomnumber to the atom/COM list for pairs
+      //       // SD local variable of type AtomNumber. Its value is set using countIndex.
+      //       AtomNumber ati;
+      //       ati.setIndex(countIndex);
+      //       Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
+      //       Pind0[Pind]=aind+1;
+      //       oind=Pind;
+      //       countIndex += 1;
+      //     }
+      //     // adding the atomnumber to list of atoms for every COM/Atoms
+      //     comatm[Pind0[Pind]-1].push_back(anum);
+      //   }
+      // }
     }
     // Output Lists
     log << "  Groups of type  " << j << ": " << Plist[j].size() << " \n";
@@ -582,9 +584,9 @@ PIV::PIV(const ActionOptions&ao):
           // -- SD listall should contain the actual atom numbers in the PDB file.
           listall.push_back(at_num);
         }
-        if( (direct) && ( (at_name == "C12") || (at_name == "C43") || (at_name == "C56") ) ) {
-          listall.push_back(at_num);
-        }  
+        // if( (direct) && ( (at_name == "C12") || (at_name == "C43") || (at_name == "C56") ) ) {
+        //   listall.push_back(at_num);
+        // }  
       }                                                                                                                 
     }
   }
@@ -614,29 +616,30 @@ PIV::PIV(const ActionOptions&ao):
   // block numbers out of Nlist correspond to which block types 
   NList_OW_blocks.clear();
   NList_HW_blocks.clear();
-  for (unsigned j=0; j<Natm; j++) {
-    for (unsigned i=j+1; i<Natm; i++) {
-      if (ncnt < Nlist) {
-        if (solv_blocks == 1) {
-          if (i == Natm-1) {
-            NList_OW_blocks.push_back(ncnt);
-          }
-        } else if (solv_blocks == 2) {
-          if (i == Natm-1) {
-            NList_HW_blocks.push_back(ncnt);
-          }
-        } else if (solv_blocks == 3) {
-          if (i == Natm-1) {
-            NList_HW_blocks.push_back(ncnt);
-          } else if (i == Natm-2) {
-            NList_OW_blocks.push_back(ncnt);
+  if(cross){
+    for (unsigned j=0; j<Natm; j++) {
+      for (unsigned i=j+1; i<Natm; i++) {
+        if (ncnt < Nlist) {
+          if (solv_blocks == 1) {
+            if (i == Natm-1) {
+              NList_OW_blocks.push_back(ncnt);
+            }
+          } else if (solv_blocks == 2) {
+            if (i == Natm-1) {
+              NList_HW_blocks.push_back(ncnt);
+            }
+          } else if (solv_blocks == 3) {
+            if (i == Natm-1) {
+              NList_HW_blocks.push_back(ncnt);
+            } else if (i == Natm-2) {
+              NList_OW_blocks.push_back(ncnt);
+            }
           }
         }
+        ncnt+=1;
       }
-      ncnt+=1;
     }
   }
-
   // PIV scaled option
   scaling.resize(Nlist);
   for(unsigned j=0; j<Nlist; j++) {
@@ -1094,10 +1097,18 @@ PIV::PIV(const ActionOptions&ao):
   requestAtoms(nlreduced->getFullAtomList());
 
 
-  ann_deriv.resize(listreduced.size());
-  for (int i = 0; i < listreduced.size(); i++) {
+  if(cross){
+    ann_deriv.resize(listreduced.size());
+  }
+  if(direct){
+    ann_deriv.resize(listreduced.size()*(listreduced.size()-1)*0.5);
+  }
+
+ // printf("TOTAL COUNT :%d\n\n\n", total_count);
+  for (int i = 0; i < ann_deriv.size(); i++) {
     ann_deriv[i].resize(total_count);
   }
+
   ds_array.resize(total_count);
 }
 
@@ -1125,7 +1136,13 @@ void PIV::prepare() {
   if(nlall->getStride()>0) {
     if((getStep()+1)%nlall->getStride()==0) {
       requestAtoms(nlall->getFullAtomList());
-      ann_deriv.resize(listall.size());
+
+      if(cross){
+        ann_deriv.resize(listall.size());
+      }
+      if (direct){
+	ann_deriv.resize(listall.size()*(listall.size()-1)*0.5);
+      }
 
       int total_count=0;
       // Adjust total_count based on the solvent atoms considered.
@@ -1153,8 +1170,11 @@ void PIV::prepare() {
         }
       }
 
+      if(direct){
+	      total_count = 78;
+      }
 
-      for(unsigned i=0; i < listall.size(); i++) {
+      for(unsigned i=0; i < ann_deriv.size(); i++) {
         ann_deriv[i].resize(total_count);
       }
       ds_array.resize(total_count);
@@ -1355,31 +1375,42 @@ void PIV::prepare() {
       nlreduced= new NeighborList(listreduced,true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
 
       requestAtoms(nlreduced->getFullAtomList());
-      ann_deriv.resize(listreduced.size());
+      if(cross){
+        ann_deriv.resize(listreduced.size());
+      }
+      if(direct){
+	      ann_deriv.resize(listreduced.size()*(listreduced.size()-1)*0.5);
+      }
+     // printf("ANN size %d",ann_deriv.size());
       int total_count=0;
 
-      if (solv_blocks == 3) {
-        for(unsigned j=0; j<Natm-2; j++) {
-          total_count += j;
-        }
-        total_count += NL_const_size*(Natm-2)*3;
-      } else if (solv_blocks == 2) {
-        for(unsigned j=0; j<Natm-1; j++) {
-          total_count += j;
-        }
-        total_count += NL_const_size*(Natm-1)*2;
-      } else if (solv_blocks == 1) {
-        for(unsigned j=0; j<Natm-1; j++) {
-          total_count += j;
-        }
-        total_count += NL_const_size*(Natm-1);
-      } else {
-        for(unsigned j=0; j<Natm; j++) {
-          total_count += j;
+      if(cross){
+        if (solv_blocks == 3) {
+          for(unsigned j=0; j<Natm-2; j++) {
+            total_count += j;
+          }
+          total_count += NL_const_size*(Natm-2)*3;
+        } else if (solv_blocks == 2) {
+          for(unsigned j=0; j<Natm-1; j++) {
+            total_count += j;
+          }
+          total_count += NL_const_size*(Natm-1)*2;
+        } else if (solv_blocks == 1) {
+          for(unsigned j=0; j<Natm-1; j++) {
+            total_count += j;
+          }
+          total_count += NL_const_size*(Natm-1);
+        } else {
+          for(unsigned j=0; j<Natm; j++) {
+            total_count += j;
+          }
         }
       }
+      if(direct){
+        total_count = 78;
+      }
 
-      for(unsigned i=0; i < listreduced.size(); i++) {
+      for(unsigned i=0; i < ann_deriv.size(); i++) {
         ann_deriv[i].resize(total_count);
       }
       ds_array.resize(total_count);
@@ -1791,8 +1822,10 @@ void PIV::calculate()
         max_solv_atoms = 2*NL_const_size;
       }
 
-      if(limit > max_solv_atoms) {
-        start_val = limit - max_solv_atoms;
+      if (cross){
+        if(limit > max_solv_atoms) {
+          start_val = limit - max_solv_atoms;
+        }
       }
       if (writepivtraj) {
         for(unsigned i=start_val; i<limit; i++) {
@@ -1867,8 +1900,10 @@ void PIV::calculate()
         max_solv_atoms = 2*NL_const_size;
       }
       
-      if(limit > max_solv_atoms) {
-        start_val = limit - max_solv_atoms;
+      if (cross) {
+      	if(limit > max_solv_atoms) {
+          start_val = limit - max_solv_atoms;
+        }
       }
       for(unsigned i=start_val; i<limit; i++) {
         unsigned i0=0;
@@ -1964,8 +1999,10 @@ void PIV::calculate()
       max_solv_atoms = 2*NL_const_size;
     }
 
-    if( (limit > max_solv_atoms) && (solv_blocks != 0) ){
-      start_val = limit - max_solv_atoms;
+    if (cross) {
+      if( (limit > max_solv_atoms) && (solv_blocks != 0) ){
+        start_val = limit - max_solv_atoms;
+      }
     }
     for (int i = start_val; i < limit; i++) {
       string comp = "ELEMENT-" + to_string(total_count);
