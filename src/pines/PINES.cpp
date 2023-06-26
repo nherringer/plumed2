@@ -1,19 +1,3 @@
-/* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Copyright (c) 2017 of Pipolo Silvio and Fabio Pietrucci.
-
-The piv module is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-The piv module is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public License
-along with plumed.  If not, see <http://www.gnu.org/licenses/>.
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #include "colvar/Colvar.h"
 #include "colvar/ActionRegister.h"
 #include "core/PlumedMain.h"
@@ -24,8 +8,8 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include "tools/Pbc.h"
 #include "tools/Stopwatch.h"
 
-// -- SD header file for both ANN function and PIV
-#include "PIV.h"
+// -- SD header file for both ANN function and PINES
+#include "PINES.h"
 
 #include <string>
 #include <cmath>
@@ -36,213 +20,144 @@ using namespace std;
 
 namespace PLMD
 {
-namespace piv
+namespace PINES
 {
 
-//+PLUMEDOC PIVMOD_COLVAR PIV
+//+PLUMEDOC PINESMOD_COLVAR PINES
 /*
-Calculates the PIV-distance.
 
 ******************WARNING: ONLYDIRECT FUNCTIONALITY HAS ONLY BEEN TESTED FOR AR13**********************************
 
-PIV distance is the squared Cartesian distance between the PIV \cite gallet2013structural \cite pipolo2017navigating
-associated to the configuration of the system during the dynamics and a reference configuration provided
-as input (PDB file format).
-PIV can be used together with \ref FUNCPATHMSD to define a path in the PIV space.
-
 \par Examples
 
-The following example calculates PIV-distances from three reference configurations in Ref1.pdb, Ref2.pdb and Ref3.pdb
-and prints the results in a file named colvar.
-Three atoms (PIVATOMS=3) with names (pdb file) A B and C are used to construct the PIV and all PIV blocks (AA, BB, CC, AB, AC, BC) are considered.
-SFACTOR is a scaling factor that multiplies the contribution to the PIV-distance given by the single PIV block.
-NLIST sets the use of neighbor lists for calculating atom-atom distances.
-The SWITCH keyword specifies the parameters of the switching function that transforms atom-atom distances.
-SORT=1 means that the PIV block elements are sorted (SORT=0 no sorting.)
-Values for SORT, SFACTOR and the neighbor list parameters have to be specified for each block.
-The order is the following: AA,BB,CC,AB,AC,BC. If ONLYDIRECT (ONLYCROSS) is used the order is AA,BB,CC (AB,AC,BC).
-The sorting operation within each PIV block is performed using the counting sort algorithm, PRECISION specifies the size of the counting array.
-
 \plumedfile
-PIV ...
-LABEL=Pivd1
+PINES ...
+LABEL=PINES
 PRECISION=1000
 NLIST
-REF_FILE=Ref1.pdb
-PIVATOMS=3
-ATOMTYPES=A,B,C
-SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
-SORT=1,1,1,1,1,1
-SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
-SWITCH2={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH3={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH4={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH5={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH6={RATIONAL R_0=0.5 MM=12 NN=6}
-NL_CUTOFF=0.8,0.6,0.6,0.7,0.7,0.7
-NL_STRIDE=10,10,10,10,10,10
-NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
-... PIV
-PIV ...
-LABEL=Pivd2
-PRECISION=1000
-NLIST
-REF_FILE=Ref2.pdb
-PIVATOMS=3
-ATOMTYPES=A,B,C
-SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
-SORT=1,1,1,1,1,1
-SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
-SWITCH2={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH3={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH4={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH5={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH6={RATIONAL R_0=0.5 MM=12 NN=6}
-NL_CUTOFF=0.8,0.6,0.6,0.7,0.7,0.7
-NL_STRIDE=10,10,10,10,10,10
-NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
-... PIV
-PIV ...
-LABEL=Pivd3
-PRECISION=1000
-NLIST
-REF_FILE=Ref3.pdb
-PIVATOMS=3
-ATOMTYPES=A,B,C
-SFACTOR=0.3,0.5,1.0,0.2,0.2,0.2
-SORT=1,1,1,1,1,1
-SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
-SWITCH2={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH3={RATIONAL R_0=0.4 MM=10 NN=5}
-SWITCH4={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH5={RATIONAL R_0=0.5 MM=12 NN=6}
-SWITCH6={RATIONAL R_0=0.5 MM=12 NN=6}
-NL_CUTOFF=0.8,0.6,0.6,0.7,0.7,0.7
-NL_STRIDE=10,10,10,10,10,10
-NL_SKIN=0.1,0.1,0.1,0.1,0.1,0.1
-... PIV
-
-PRINT ARG=Pivd1,Pivd2,Pivd3 FILE=colvar
-\endplumedfile
-
-WARNING:
-Both the "CRYST" and "ATOM" lines of the PDB files must conform precisely to the official pdb format, including the width of each alphanumerical field:
-
-\verbatim
-CRYST1   31.028   36.957   23.143  89.93  92.31  89.99 P 1           1
-ATOM      1  OW1 wate    1      15.630  19.750   1.520  1.00  0.00
-\endverbatim
-
-In each pdb frame, atoms must be numbered in the same order and with the same element symbol as in the input of the MD program.
-
-The following example calculates the PIV-distances from two reference configurations Ref1.pdb and Ref2.pdb
-and uses PIV-distances to define a Path Collective Variable (\ref FUNCPATHMSD) with only two references (Ref1.pdb and Ref2.pdb).
-With the VOLUME keyword one scales the atom-atom distances by the cubic root of the ratio between the specified value and the box volume of the initial step of the trajectory file.
-
+ONLYCROSS
+REF_FILE=md.pdb
+PINESATOMS=5
+ATOMTYPES=NA,CL,OW,HW1,HW2
+SFACTOR=1.0,1.0,1.0,1.0,1.0
+SORT=1.0,1.0,1.0,1.0,1.0
+SWITCH1={RATIONAL R_0=0.38 MM=12 NN=6}
+SWITCH2={RATIONAL R_0=0.35 MM=12 NN=6}
+SWITCH3={RATIONAL R_0=0.41 MM=12 NN=6}
+SWITCH4={RATIONAL R_0=0.40 MM=12 NN=6}
+SWITCH5={RATIONAL R_0=0.28 MM=12 NN=6}
+NL_CUTOFF=5.0,1.5,1.5,1.5,1.5
+NL_STRIDE=10.0,10.0,10.0,10.0,10.0
+NL_SKIN=0.1,0.1,0.1,0.1,0.1
+NL_CONSTANT_SIZE=10
+... PINES
+PRINT STRIDE=1 ARG=PINES FILE=PINES_trj
 \plumedfile
-PIV ...
-LABEL=c1
+
+This module is designed for compatability with the ANN module. The following is an example of a plumed.dat file using both modules:
+\plumedfile
+PINES ...
+LABEL=PINES
 PRECISION=1000
-VOLUME=12.15
 NLIST
-REF_FILE=Ref1.pdb
-PIVATOMS=2
-ATOMTYPES=A,B
-ONLYDIRECT
-SFACTOR=1.0,0.2
-SORT=1,1
-SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
-SWITCH2={RATIONAL R_0=0.5 MM=10 NN=5}
-NL_CUTOFF=1.2,1.2
-NL_STRIDE=10,10
-NL_SKIN=0.1,0.1
-... PIV
-PIV ...
-LABEL=c2
-PRECISION=1000
-VOLUME=12.15
-NLIST
-REF_FILE=Ref2.pdb
-PIVATOMS=2
-ATOMTYPES=A,B
-ONLYDIRECT
-SFACTOR=1.0,0.2
-SORT=1,1
-SWITCH1={RATIONAL R_0=0.6 MM=12 NN=4}
-SWITCH2={RATIONAL R_0=0.4 MM=10 NN=5}
-NL_CUTOFF=1.2,1.2
-NL_STRIDE=10,10
-NL_SKIN=0.1,0.1
-... PIV
+ONLYCROSS
+REF_FILE=md.pdb
+PINESATOMS=5
+ATOMTYPES=NA,CL,OW,HW1,HW2
+SFACTOR=1.0,1.0,1.0,1.0,1.0
+SORT=1.0,1.0,1.0,1.0,1.0
+SWITCH1={RATIONAL R_0=0.38 MM=12 NN=6}
+SWITCH2={RATIONAL R_0=0.35 MM=12 NN=6}
+SWITCH3={RATIONAL R_0=0.41 MM=12 NN=6}
+SWITCH4={RATIONAL R_0=0.40 MM=12 NN=6}
+SWITCH5={RATIONAL R_0=0.28 MM=12 NN=6}
+NL_CUTOFF=5.0,1.5,1.5,1.5,1.5
+NL_STRIDE=10.0,10.0,10.0,10.0,10.0
+NL_SKIN=0.1,0.1,0.1,0.1,0.1
+NL_CONSTANT_SIZE=10
+... PINES
 
-p1: FUNCPATHMSD ARG=c1,c2 LAMBDA=0.180338
-METAD ARG=p1.s,p1.z SIGMA=0.01,0.2 HEIGHT=0.8 PACE=500   LABEL=res
-PRINT ARG=c1,c2,p1.s,p1.z,res.bias STRIDE=500  FILE=colvar FMT=%15.6f
-\endplumedfile
+ANN ...
+LABEL=ann
+ARG=PINES.*
+NUM_LAYERS=6
+NUM_NODES=61,64,32,16,3,3
+ACTIVATIONS=BNTanh,BNTanh,BNTanh,BNTanh,Linear
+WEIGHTS0=                                                                                                        1,1           Top
+WEIGHTS1=
+WEIGHTS2=
+BIASES0=
+BIASES1=
+BIASES2=
+... ANN
 
-When using PIV please cite \cite pipolo2017navigating .
+PBMETAD ...
+ARG=ann.node-0,ann.node-1,ann.node-2 SIGMA=0.1,0.1,0.1 HEIGHT=1.2
+TEMP=300 PACE=500 BIASFACTOR=2 LABEL=pb
+FILE=hills_pc0.out,hills_pc1.out,hills_pc2.out
+GRID_MIN=-2.5,-2.5,-2.5 GRID_MAX=2.5,2.5,2.5 GRID_BIN=5000,5000,5000
+... PBMETAD
+PRINT STRIDE=1 ARG=ann.node-0,ann.node-1,ann.node-2,pb.bias FILE=colvar.out
+\plumedfile
 
-(See also \ref PRINT)
 
 */
 //+ENDPLUMEDOC
 
 
-PLUMED_REGISTER_ACTION(PIV,"PIV")
+PLUMED_REGISTER_ACTION(PINES,"PINES")
 
-void PIV::registerKeywords( Keywords& keys )
+void PINES::registerKeywords( Keywords& keys )
 {
   Colvar::registerKeywords( keys );
   keys.add("numbered","SWITCH","The switching functions parameter."
-           "You should specify a Switching function for all PIV blocks."
+           "You should specify a Switching function for all PINES blocks."
            "Details of the various switching "
            "functions you can use are provided on \\ref switchingfunction.");
   keys.add("compulsory","PRECISION","the precision for approximating reals with integers in sorting.");
-  keys.add("compulsory","REF_FILE","PDB file name that contains the \\f$i\\f$th reference structure.");
-  keys.add("compulsory","PIVATOMS","Number of atoms to use for PIV.");
-  keys.add("compulsory","SORT","Whether to sort or not the PIV block.");
-  keys.add("compulsory","ATOMTYPES","The atom types to use for PIV.");
-  keys.add("optional","SFACTOR","Scale the PIV-distance by such block-specific factor");
+  keys.add("compulsory","REF_FILE","PDB file name that contains the information about system connectivity and labels.");
+  keys.add("compulsory","PINESATOMS","Number of atoms to use for PINES.");
+  keys.add("compulsory","SORT","Whether to sort or not the PINES block.");
+  keys.add("compulsory","ATOMTYPES","The atom types to use for PINES.");
+  keys.add("optional","SFACTOR","Scale the PINES-distance by such block-specific factor");
   keys.add("optional","VOLUME","Scale atom-atom distances by the cubic root of the cell volume. The input volume is used to scale the R_0 value of the switching function. ");
-  keys.add("optional","UPDATEPIV","Frequency (in steps) at which the PIV is updated.");
-  keys.addFlag("TEST",false,"Print the actual and reference PIV and exit");
-  keys.addFlag("COM",false,"Use centers of mass of groups of atoms instead of atoms as specified in the Pdb file");
-  keys.addFlag("ONLYCROSS",false,"Use only cross-terms (A-B, A-C, B-C, ...) in PIV");
-  keys.addFlag("ONLYDIRECT",false,"Use only direct-terms (A-A, B-B, C-C, ...) in PIV");
-  keys.addFlag("DERIVATIVES",false,"Activate the calculation of the PIV for every class (needed for numerical derivatives).");
+  keys.add("optional","UPDATEPINES","Frequency (in steps) at which the PINES is updated.");
+  keys.addFlag("TEST",false,"Print the actual and reference PINES and exit");
+  keys.addFlag("ONLYCROSS",false,"Use only cross-terms (A-B, A-C, B-C, ...) in PINES");
+  keys.addFlag("ONLYDIRECT",false,"Use only direct-terms (A-A, B-B, C-C, ...) in PINES");
+  keys.addFlag("DERIVATIVES",false,"Activate the calculation of the PINES for every class (needed for numerical derivatives).");
   keys.addFlag("NLIST",false,"Use a neighbor list for distance calculations.");
   keys.addFlag("SERIAL",false,"Perform the calculation in serial - for debug purpose");
   keys.addFlag("TIMER",false,"Perform timing analysis on heavy loops.");
-  keys.addFlag("PIVREP",false,"Post process a trajectory from cartesian coordinates to a PIV representation.");
   keys.add("optional","NL_CONSTANT_SIZE","Fix the number of elements in all blocks to be constant. Blocks which have a total number of possible elements less than the chosen constant size will not be affected.");
   keys.add("optional","NL_CUTOFF","Neighbor lists cutoff.");
-  keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps.");
+  keys.add("optional","NL_STRIDE","Update neighbor lists every NL_STRIDE steps. When post-processing a trajectory a stride of 1 should always be used.");
   keys.add("optional","NL_SKIN","The maximum atom displacement tolerated for the neighbor lists update.");
-  // -- SD Flag for writing PIV values in a single file when using plumed driver.
-  keys.addFlag("WRITEPIVTRAJ",false,"Flag to enable or disable writing PIV_representation when using plumed driver.");
-  // -- SD Variables to control frequency of writing PIV values and ANN PIV derivatives during simulation.
-  keys.add("optional","WRITEPIVSTRIDE","STRIDE to write PIV_representation.");
+  // -- SD Flag for writing PINES values in a single file when using plumed driver.
+  keys.addFlag("WRITEPINESTRAJ",false,"Flag to enable or disable writing PINES_representation when using plumed driver.");
+  // -- SD Variables to control frequency of writing PINES values and ANN PINES derivatives during simulation.
+  keys.add("optional","WRITEPINESSTRIDE","STRIDE to write PINES_representation.");
   componentsAreNotOptional(keys);
   // Changing "COMPONENTS" to "default" and slightly modifying the name. Added components for ANN_SUM_DERIV
-  keys.addOutputComponent("ELEMENT", "default", "Elements of the PIV block. The position in the N choose 2 interactions (i) and the neighbor in the neighbor list (j) is given as PIV-i-j.");
-  //keys.addOutputComponent("ANNSUMDERIV", "default", "2D array of PIV element partial derivatives (used with ANN module).");
+  keys.addOutputComponent("ELEMENT", "default", "Elements of the PINES block. The position in the N choose 2 interactions (i) and the neighbor in the neighbor list (j) is given as PINES-i-j.");
+  //keys.addOutputComponent("ANNSUMDERIV", "default", "2D array of PINES element partial derivatives (used with ANN module).");
   keys.reset_style("SWITCH","compulsory");
 }
 
-PIV::PIV(const ActionOptions&ao):
+PINES::PINES(const ActionOptions&ao):
   PLUMED_COLVAR_INIT(ao),
   pbc(true),
   serial(false),
   timer(false),
   NL_const_size(0),
-  updatePIV(1),
+  updatePINES(1),
   Nprec(1000),
   Natm(1),
   Nlist(1),
   NLsize(1),
   Fvol(1.),
   Vol0(0.),
-  m_PIVdistance(0.),
+  m_PINESdistance(0.),
   solv_blocks(1),
   scaling(std:: vector<double>(Nlist)),
   r00(std:: vector<double>(Nlist)),
@@ -257,8 +172,8 @@ PIV::PIV(const ActionOptions&ao):
   m_deriv(std:: vector<Vector>(1)),
   ds_array(std:: vector<double>(1)),
   ann_deriv(std:: vector<std:: vector<Vector> >(1)),
-  PIV_Pair0(std:: vector<int>(1)),
-  PIV_Pair1(std:: vector<int>(1)),
+  PINES_Pair0(std:: vector<int>(1)),
+  PINES_Pair1(std:: vector<int>(1)),
   Plist(std:: vector<std:: vector<AtomNumber> >(1)),
   listall(std:: vector<AtomNumber>(1)),
   AtomToResID_Dict(std:: vector<unsigned>(1)),
@@ -275,17 +190,16 @@ PIV::PIV(const ActionOptions&ao):
   doneigh(false),
   test(false),
   CompDer(false),
-  com(false),
   // SD -- local variables corresponding to user defined flags.
-  writepivtraj(false),
+  writePINEStraj(false),
   writestride(false),
-  writepivstride(-1),
-  cart2piv(false),
+  writePINESstride(-1),
+  cart2PINES(true),
   // SD -- used in prepare function.
   invalidateList(true),
   firsttime(true)
 {
-  log << "Starting PIV Constructor\n";
+  log << "Starting PINES Constructor\n";
 
   // Precision on the real-to-integer transformation for the sorting
   parse("PRECISION",Nprec);
@@ -304,9 +218,9 @@ PIV::PIV(const ActionOptions&ao):
   // SERIAL/PARALLEL
   parseFlag("SERIAL",serial);
   if(serial) {
-    log << "Serial PIV construction\n";
+    log << "Serial PINES construction\n";
   } else     {
-    log << "Parallel PIV construction\n";
+    log << "Parallel PINES construction\n";
   }
 
   // Derivatives
@@ -324,22 +238,15 @@ PIV::PIV(const ActionOptions&ao):
   // Test
   parseFlag("TEST",test);
 
-  // PIV Representation
-  parseFlag("PIVREP",cart2piv);
-
   // Constant Neighbor List Size
   if(keywords.exists("NL_CONSTANT_SIZE")) {
     parse("NL_CONSTANT_SIZE",NL_const_size);
   }
 
-  // UPDATEPIV
-  if(keywords.exists("UPDATEPIV")) {
-    parse("UPDATEPIV",updatePIV);
+  // UPDATEPINES
+  if(keywords.exists("UPDATEPINES")) {
+    parse("UPDATEPINES",updatePINES);
   }
-
-  // Test
-  parseFlag("COM",com);
-  if(com) log << "Building PIV using COMs\n";
 
   // Volume Scaling
   parse("VOLUME",Vol0);
@@ -347,7 +254,7 @@ PIV::PIV(const ActionOptions&ao):
     Svol=true;
   }
 
-  // PIV direct and cross blocks
+  // PINES direct and cross blocks
   bool oc=false,od=false;
   parseFlag("ONLYCROSS",oc);
   parseFlag("ONLYDIRECT",od);
@@ -356,15 +263,15 @@ PIV::PIV(const ActionOptions&ao):
   }
   if(oc) {
     direct=false;
-    log << "Using only CROSS-PIV blocks\n";
+    log << "Using only CROSS-PINES blocks\n";
   }
   if(od) {
     cross=false;
-    log << "Using only DIRECT-PIV blocks\n";
+    log << "Using only DIRECT-PINES blocks\n";
   }
 
-  // Atoms for PIV
-  parse("PIVATOMS",Natm);
+  // Atoms for PINES
+  parse("PINESATOMS",Natm);
   atype.resize(Natm);
   parseVector("ATOMTYPES",atype);
   solv_blocks=0;
@@ -440,21 +347,13 @@ PIV::PIV(const ActionOptions&ao):
 
   // Pind0 is the atom/COM used in Nlists (for COM Pind0 is the first atom in the pdb belonging to that COM)
   unsigned Pind0size;
-  if(com) {
-    Pind0size=resnum;
-  } else {
-    Pind0size=NLsize;
-  }
+
+  Pind0size=NLsize;
+  
   std:: vector<unsigned> Pind0(Pind0size);
-  // SD -- following resize of COM arrays to NLsize don't make sense to me. Should it be resnum? We don't use COM anyway.
-  // If COM resize important arrays
+
   comatm.resize(NLsize);
-  if(com) {
-    nlcom.resize(NLsize);
-    compos.resize(NLsize);
-    fmass.resize(NLsize,0.);
-  }
-  // SD -- following total atoms don't make sense to me.
+
   log << "Total COM/Atoms: " << Natm*resnum << " \n";
   // Build lists of Atoms/COMs for NLists
   //   comatm filled also for non_COM calculation for analysis purposes
@@ -476,17 +375,10 @@ PIV::PIV(const ActionOptions&ao):
       // This builds lists for NL
       string Pname;
       unsigned Pind;
-      if(com) {
-        Pname=rname;
-        for(unsigned l=0; l<resnum; l++) {
-          if(rind==Presind[l]) {
-            Pind=l;
-          }
-        }
-      } else {
-        Pname=aname;
-        Pind=aind;
-      }
+
+      Pname=aname;
+      Pind=aind;
+      
       if(Pname==atype[j]) {
         if(Pind0[Pind]==0) {
           // adding the atomnumber to the atom/COM list for pairs
@@ -519,38 +411,19 @@ PIV::PIV(const ActionOptions&ao):
           comatm[Pind0[Pind]-1].push_back(anum);
         }
       }
-      // else if(direct){
-      //   if( ( (atype[j]=="C1") && (Pname=="C12") ) || ( (atype[j]=="C22") && (Pname=="C43") ) || ( (atype[j]=="C35") && (Pname=="C56") ) )  {
-      //     if(Pind0[Pind]==0) {
-      //       // adding the atomnumber to the atom/COM list for pairs
-      //       // SD local variable of type AtomNumber. Its value is set using countIndex.
-      //       AtomNumber ati;
-      //       ati.setIndex(countIndex);
-      //       Plist[j].push_back(ati); //anum) -- SD (previously, it is same as atom number in PDB file).;
-      //       Pind0[Pind]=aind+1;
-      //       oind=Pind;
-      //       countIndex += 1;
-      //     }
-      //     // adding the atomnumber to list of atoms for every COM/Atoms
-      //     comatm[Pind0[Pind]-1].push_back(anum);
-      //   }
-      // }
     }
     // Output Lists
     log << "  Groups of type  " << j << ": " << Plist[j].size() << " \n";
     string gname;
     unsigned gsize;
-    if(com) {
-      gname=mypdb.getResidueName(comatm[Pind0[oind]-1][0]);
-      gsize=comatm[Pind0[oind]-1].size();
-    } else {
-      gname=mypdb.getAtomName(comatm[Pind0[oind]-1][0]);
-      gsize=1;
-    }
+
+    gname=mypdb.getAtomName(comatm[Pind0[oind]-1][0]);
+    gsize=1;
+
     log.printf("    %6s %3s %13s %10i %6s\n", "type  ", gname.c_str(),"   containing ",gsize," atoms");
   }
 
-  // SD This is to build the list with the atoms required for PIV.
+  // SD This is to build the list with the atoms required for PINES.
   // std:: vector<AtomNumber> listall;
   listall.clear();
   // AtomToResID is used to ensure that all relevant atoms from a water
@@ -583,15 +456,12 @@ PIV::PIV(const ActionOptions&ao):
         if(at_name == atype[j]) {
           // -- SD listall should contain the actual atom numbers in the PDB file.
           listall.push_back(at_num);
-        }
-        // if( (direct) && ( (at_name == "C12") || (at_name == "C43") || (at_name == "C56") ) ) {
-        //   listall.push_back(at_num);
-        // }  
+        } 
       }                                                                                                                 
     }
   }
 
-  // PIV blocks and Neighbour Lists
+  // PINES blocks and Neighbour Lists
   Nlist=0;
   // Direct adds the A-A ad B-B blocks (N)
   if(direct) {
@@ -640,7 +510,7 @@ PIV::PIV(const ActionOptions&ao):
       }
     }
   }
-  // PIV scaled option
+  // PINES scaled option
   scaling.resize(Nlist);
   for(unsigned j=0; j<Nlist; j++) {
     scaling[j]=1.;
@@ -650,14 +520,14 @@ PIV::PIV(const ActionOptions&ao):
     parseVector("SFACTOR",scaling);
   }
 
-  // Added STRIDE to write PIV representation and ANN sum derivatives -- SD
-  if(keywords.exists("WRITEPIVTRAJ")){
-    parseFlag("WRITEPIVTRAJ",writepivtraj);
+  // Added STRIDE to write PINES representation and ANN sum derivatives -- SD
+  if(keywords.exists("WRITEPINESTRAJ")){
+    parseFlag("WRITEPINESTRAJ",writePINEStraj);
   }
-  if(keywords.exists("WRITEPIVSTRIDE")) { 
-    parse("WRITEPIVSTRIDE",writepivstride);
+  if(keywords.exists("WRITEPINESSTRIDE")) { 
+    parse("WRITEPINESSTRIDE",writePINESstride);
   }
-  if (writepivstride != -1) {
+  if (writePINESstride != -1) {
     writestride=true;
   }
 
@@ -682,13 +552,6 @@ PIV::PIV(const ActionOptions&ao):
     // SD -- nlall is a neighbor list created using list all. nl_cut[0] and nl_st[0] are probably not needed.
     // WARNING: is nl_cut meaningful here?
     nlall= new NeighborList(listall,true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
-    if(com) {
-      //Build lists of Atoms for every COM
-      for (unsigned i=0; i<compos.size(); i++) {
-        // WARNING: is nl_cut meaningful here?
-        nlcom[i]= new NeighborList(comatm[i],true,pbc,getPbc(),comm,nl_cut[0],nl_st[0]);
-      }
-    }
     unsigned ncnt=0;
     // Direct blocks AA, BB, CC, ...
     if(direct) {
@@ -936,30 +799,13 @@ PIV::PIV(const ActionOptions&ao):
   for (unsigned j=0; j<Nlist; j++) {
     log << "  list " << j+1 << "   size " << nl[j]->size() << " \n";
   }
-  // Calculate COM masses once and for all from lists
-  if(com) {
-    for(unsigned j=0; j<compos.size(); j++) {
-      double commass=0.;
-      for(unsigned i=0; i<nlcom[j]->getFullAtomList().size(); i++) {
-        unsigned andx=nlcom[j]->getFullAtomList()[i].index();
-        commass+=mypdb.getOccupancy()[andx];
-      }
-      for(unsigned i=0; i<nlcom[j]->getFullAtomList().size(); i++) {
-        unsigned andx=nlcom[j]->getFullAtomList()[i].index();
-        if(commass>0.) {
-          fmass[andx]=mypdb.getOccupancy()[andx]/commass;
-        } else {
-          fmass[andx]=1.;
-        }
-      }
-    }
-  }
+
 
   // Sorting
   dosort.resize(Nlist);
   std:: vector<int> ynsort(Nlist);
   parseVector("SORT",ynsort);
-  if(cart2piv) {
+  if(cart2PINES) {
     for (unsigned i=0; i<Nlist; i++) {
       if(ynsort[i]==0) {
         dosort[i]=false;
@@ -1028,30 +874,19 @@ PIV::PIV(const ActionOptions&ao):
     }
   }
 
-  // build COMs from positions if requested
-  if(com) {
-    for(unsigned j=0; j<compos.size(); j++) {
-      compos[j][0]=0.;
-      compos[j][1]=0.;
-      compos[j][2]=0.;
-      for(unsigned i=0; i<nlcom[j]->getFullAtomList().size(); i++) {
-        unsigned andx=nlcom[j]->getFullAtomList()[i].index();
-        compos[j]+=fmass[andx]*mypdb.getPositions()[andx];
-      }
-    }
-  }
-  // build the rPIV distances (transformation and sorting is done afterwards)
+
+  // build the rPINES distances (transformation and sorting is done afterwards)
   if(CompDer) {
-    log << "  PIV  |  block   |     Size      |     Zeros     |     Ones      |" << " \n";
+    log << "  PINES  |  block   |     Size      |     Zeros     |     Ones      |" << " \n";
   }
   checkRead();
-  // Create components of PIV
+  // Create components of PINES
 
-  // cPIV hasn't been created yet so it can't be used in the loop.
+  // cPINES hasn't been created yet so it can't be used in the loop.
   // The loop is set up generally as N(N-1)/2. 
   // The if/else statement accounts for there being >1 elements in the solute-solvent blocks, 
   // and expects that the interaction with solvent is the last block of the each solute atom's interactions
-  // Total count keeps a running tally of the elements in the entire PIV so that there will be an equal number of components.
+  // Total count keeps a running tally of the elements in the entire PINES so that there will be an equal number of components.
   unsigned total_count=0;
   int count_nl_loop=0;
   if(cross) {
@@ -1113,15 +948,10 @@ PIV::PIV(const ActionOptions&ao):
 }
 
 // The following deallocates pointers
-PIV::~PIV()
+PINES::~PINES()
 {
   for (unsigned j=0; j<Nlist; j++) {
     delete nl[j];
-  }
-  if(com) {
-    for (unsigned j=0; j<NLsize; j++) {
-      delete nlcom[j];
-    }
   }
   for(unsigned j=0; j<Nlist; j++) {
     delete nl_small[j];
@@ -1132,7 +962,7 @@ PIV::~PIV()
 
 
 // SD request atoms in every frame.
-void PIV::prepare() {
+void PINES::prepare() {
   if(nlall->getStride()>0) {
     if((getStep()+1)%nlall->getStride()==0) {
       requestAtoms(nlall->getFullAtomList());
@@ -1141,13 +971,13 @@ void PIV::prepare() {
         ann_deriv.resize(listall.size());
       }
       if (direct){
-	ann_deriv.resize(listall.size()*(listall.size()-1)*0.5);
+	      ann_deriv.resize(listall.size()*(listall.size()-1)*0.5);
       }
 
       int total_count=0;
       // Adjust total_count based on the solvent atoms considered.
       // Total_count should be the total number of elements in the
-      // PIV block.
+      // PINES block.
 
       if (solv_blocks == 3) {
         for(unsigned j=0; j<Natm-2; j++) {
@@ -1418,7 +1248,7 @@ void PIV::prepare() {
   }
 }
 
-void PIV::calculate()
+void PINES::calculate()
 {
 
   // Local variables
@@ -1426,7 +1256,7 @@ void PIV::calculate()
   static int prev_stp=-1;
   static int init_stp=1;
   static std:: vector<std:: vector<Vector> > prev_pos(Nlist);
-  static std:: vector<std:: vector<double> > cPIV(Nlist);
+  static std:: vector<std:: vector<double> > cPINES(Nlist);
   static std:: vector<std:: vector<int> > Atom0(Nlist);
   static std:: vector<std:: vector<int> > Atom1(Nlist);
   std:: vector<std:: vector<int> > A0(Nprec);
@@ -1442,7 +1272,7 @@ void PIV::calculate()
     rank=0;
   }
 
-  // Transform (and sort) the rPIV before starting the dynamics
+  // Transform (and sort) the rPINES before starting the dynamics
   if (((prev_stp==-1) || (init_stp==1)) &&!CompDer) {
     if(prev_stp!=-1) {init_stp=0;}
     // Calculate the volume scaling factor
@@ -1477,23 +1307,11 @@ void PIV::calculate()
       log << "  Swf: " << j << "  r0=" << (sfs[j].description()).c_str() << " \n";
     }
   }
-  // Do the sorting only once per timestep to avoid building the PIV N times for N rPIV PDB structures!
-  if ((getStep()>prev_stp&&getStep()%updatePIV==0)||CompDer) {
-    if (CompDer) log << " Step " << getStep() << "  Computing Derivatives NON-SORTED PIV \n";
+  // Do the sorting only once per timestep to avoid building the PINES N times for N rPINES PDB structures!
+  if ((getStep()>prev_stp&&getStep()%updatePINES==0)||CompDer) {
+    if (CompDer) log << " Step " << getStep() << "  Computing Derivatives NON-SORTED PINES \n";
     //
     // build COMs from positions if requested
-    if(com) {
-      if(pbc) makeWhole();
-      for(unsigned j=0; j<compos.size(); j++) {
-        compos[j][0]=0.;
-        compos[j][1]=0.;
-        compos[j][2]=0.;
-        for(unsigned i=0; i<nlcom[j]->getFullAtomList().size(); i++) {
-          unsigned andx=nlcom[j]->getFullAtomList()[i].index();
-          compos[j]+=fmass[andx]*getPosition(andx);
-        }
-      }
-    }
     // update neighbor lists when an atom moves out of the Neighbor list skin
     if (doneigh && ((getStep()+1)%nlall->getStride()==0)) {
       bool doupdate=false;
@@ -1551,7 +1369,7 @@ void PIV::calculate()
     // Global to local variables
     bool doserial=serial;
 
-    // Build "Nlist" PIV blocks
+    // Build "Nlist" PINES blocks
     for(unsigned j=0; j<Nlist; j++) {
       if(dosort[j]) {
         // from global to local variables to speedup the for loop with if statements
@@ -1559,11 +1377,11 @@ void PIV::calculate()
         bool dopbc=pbc;
         // Vectors collecting occupancies: OrdVec one rank, OrdVecAll all ranks
         std:: vector<int> OrdVec(Nprec,0);
-        cPIV[j].resize(0);
+        cPINES[j].resize(0);
         Atom0[j].resize(0);
         Atom1[j].resize(0);
-        // Building distances for the PIV vector at time t
-        if(timer) stopwatch.start("1 Build cPIV");
+        // Building distances for the PINES vector at time t
+        if(timer) stopwatch.start("1 Build cPINES");
         if((getStep()+1)%nlall->getStride()==0) {
           for(unsigned i=rank; i<nl[j]->size(); i+=stride) {
             unsigned i0=(nl[j]->getClosePairAtomNumber(i).first).index();
@@ -1585,8 +1403,8 @@ void PIV::calculate()
             //Integer sorting ... faster!
             //Transforming distances with the Switching function + real to integer transformation
             int Vint=int(sfs[j].calculate(ddist.modulo()*Fvol, df)*double(Nprec-1)+0.5);
-            // Enables low precision with standard PIV sizes.
-            if(cart2piv) {
+            // Enables low precision with standard PINES sizes.
+            if(cart2PINES) {
               if(Vint == 0) {
                 Vint = 1;
               }
@@ -1646,8 +1464,8 @@ void PIV::calculate()
             //Integer sorting ... faster!
             //Transforming distances with the Switching function + real to integer transformation
             int Vint=int(sfs[j].calculate(ddist.modulo()*Fvol, df)*double(Nprec-1)+0.5);
-            // Enables low precision with standard PIV sizes.
-            if(cart2piv) {
+            // Enables low precision with standard PINES sizes.
+            if(cart2PINES) {
               if(Vint == 0) {
                 Vint = 1;
               }
@@ -1687,8 +1505,8 @@ void PIV::calculate()
             }
           }
         }
-        if(timer) stopwatch.stop("1 Build cPIV");
-        if(timer) stopwatch.start("2 Sort cPIV");
+        if(timer) stopwatch.stop("1 Build cPINES");
+        if(timer) stopwatch.start("2 Sort cPINES");
         if(!doserial && comm.initialized()) {
           // Vectors keeping track of the dimension and the starting-position of the rank-specific pair vector in the big pair vector.
           std:: vector<int> Vdim(stride,0);
@@ -1710,7 +1528,7 @@ void PIV::calculate()
             A0[i].resize(0);
             A1[i].resize(0);
           }
-          // Resize partial arrays to fill up for the next PIV block
+          // Resize partial arrays to fill up for the next PINES block
           A0[0].resize(0);
           A1[0].resize(0);
           A0[Nprec-1].resize(0);
@@ -1739,37 +1557,37 @@ void PIV::calculate()
           std:: vector<int> Atom1FAll(Fdim);
           // TO BE IMPROVED: Allgathers may be substituted by gathers by proc 0
           //   Moreover vectors are gathered head-to-tail and assembled later-on in a serial step.
-          // Gather the full Ordering Vector (occupancies). This is what we need to build the PIV
+          // Gather the full Ordering Vector (occupancies). This is what we need to build the PINES
           comm.Allgather(&OrdVec[0],Nprec,&OrdVecAll[0],Nprec);
           // Gather the vectors of atom pairs to keep track of the idexes for the forces
           comm.Allgatherv(&Atom0F[0],Atom0F.size(),&Atom0FAll[0],&Vdim[0],&Vpos[0]);
           comm.Allgatherv(&Atom1F[0],Atom1F.size(),&Atom1FAll[0],&Vdim[0],&Vpos[0]);
 
           // Reconstruct the full vectors from collections of Allgathered parts (this is a serial step)
-          // This is the tricky serial step, to assemble together PIV and atom-pair info from head-tail big vectors
+          // This is the tricky serial step, to assemble together PINES and atom-pair info from head-tail big vectors
           // Loop before on l and then on i would be better but the allgather should be modified
           // Loop on blocks
           // Loop on Ordering Vector size excluding zeros (i=1)
-          if(timer) stopwatch.stop("2 Sort cPIV");
-          if(timer) stopwatch.start("3 Reconstruct cPIV");
+          if(timer) stopwatch.stop("2 Sort cPINES");
+          if(timer) stopwatch.start("3 Reconstruct cPINES");
           for(unsigned i=1; i<Nprec; i++) {
             // Loop on the ranks
             for(unsigned l=0; l<stride; l++) {
               // Loop on the number of head-to-tail pieces
               for(unsigned m=0; m<OrdVecAll[i+l*Nprec]; m++) {
-                // cPIV is the current PIV at time t
-                cPIV[j].push_back(double(i)/double(Nprec-1));
+                // cPINES is the current PINES at time t
+                cPINES[j].push_back(double(i)/double(Nprec-1));
                 Atom0[j].push_back(Atom0FAll[k[l]+Vpos[l]]);
                 Atom1[j].push_back(Atom1FAll[k[l]+Vpos[l]]);
                 k[l]+=1;
               }
             }
           }
-          if(timer) stopwatch.stop("3 Reconstruct cPIV");
+          if(timer) stopwatch.stop("3 Reconstruct cPINES");
         } else {
           for(unsigned i=1; i<Nprec; i++) {
             for(unsigned m=0; m<OrdVec[i]; m++) {
-              cPIV[j].push_back(double(i)/double(Nprec-1));
+              cPINES[j].push_back(double(i)/double(Nprec-1));
               Atom0[j].push_back(A0[i][m]);
               Atom1[j].push_back(A1[i][m]);
             }
@@ -1787,18 +1605,18 @@ void PIV::calculate()
 
 
                                                     
-  FILE *piv_rep_file = NULL;
+  FILE *PINES_rep_file = NULL;
   if (writestride) {
-    if (getStep() % writepivstride == 0) {                                                                                      
-      string piv_rep_fileName = "PIV_representation_" + to_string(getStep()) + ".dat";                                    
-      piv_rep_file = fopen(piv_rep_fileName.c_str(), "w+"); 
+    if (getStep() % writePINESstride == 0) {                                                                                      
+      string PINES_rep_fileName = "PINES_representation_" + to_string(getStep()) + ".dat";                                    
+      PINES_rep_file = fopen(PINES_rep_fileName.c_str(), "w+"); 
     }
   }
   
-  FILE *piv_rep_file_traj = NULL;
-  if (writepivtraj) {
-    string piv_rep_fileName_traj = "PIV_representation_traj.dat";
-    piv_rep_file_traj = fopen(piv_rep_fileName_traj.c_str(), "a");
+  FILE *PINES_rep_file_traj = NULL;
+  if (writePINEStraj) {
+    string PINES_rep_fileName_traj = "PINES_representation_traj.dat";
+    PINES_rep_file_traj = fopen(PINES_rep_fileName_traj.c_str(), "a");
   }
 
   // SD countLoopLimit for debugging.
@@ -1806,9 +1624,9 @@ void PIV::calculate()
   for(unsigned j=0; j<Nlist; j++) {
     bool dosorting=dosort[j];
     unsigned limit=0;
-    // Set limit to size of PIV block. Solute-solute blocks will be 1 (for tetracosane) 
+    // Set limit to size of PINES block. Solute-solute blocks will be 1 (for tetracosane) 
     // and much larger for solute-solvent blocks (likely hundreds)
-    limit = cPIV[j].size();
+    limit = cPINES[j].size();
     // Allow for non-constant block sizes if desired
     if(NL_const_size > 0) {
       // Solute-solvent blocks have more neighbors than necessary so that padding is not necessary.
@@ -1827,30 +1645,30 @@ void PIV::calculate()
           start_val = limit - max_solv_atoms;
         }
       }
-      if (writepivtraj) {
+      if (writePINEStraj) {
         for(unsigned i=start_val; i<limit; i++) {
-          fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
+          fprintf(PINES_rep_file_traj, "%8.6f\t", cPINES[j][i]);
         }
       }
       if (writestride) {
-        if ( getStep() % writepivstride == 0) {
+        if ( getStep() % writePINESstride == 0) {
           for(unsigned i=start_val; i<limit; i++) {
-            fprintf(piv_rep_file, "%8.6f\t", cPIV[j][i]);
+            fprintf(PINES_rep_file, "%8.6f\t", cPINES[j][i]);
             countLoopLimit += 1;
           }
         }
       }
     } else {
-      // Prints out in the same PIV block element format as TEST
-      if (writepivtraj) {
+      // Prints out in the same PINES block element format as TEST
+      if (writePINEStraj) {
         for(unsigned i=0; i<limit; i++) {
-          fprintf(piv_rep_file_traj, "%8.6f\t", cPIV[j][i]);
+          fprintf(PINES_rep_file_traj, "%8.6f\t", cPINES[j][i]);
         } 
       }
       if (writestride) {
-        if ( getStep() % writepivstride == 0) {
+        if ( getStep() % writePINESstride == 0) {
           for(unsigned i=0; i<limit; i++) {
-            fprintf(piv_rep_file, "%8.6f\t", cPIV[j][i]);
+            fprintf(PINES_rep_file, "%8.6f\t", cPINES[j][i]);
             countLoopLimit += 1;
           }
         }
@@ -1858,14 +1676,14 @@ void PIV::calculate()
     }
   }
 
-  if (writepivtraj) {
-    fprintf(piv_rep_file_traj, "\n#END OF FRAME\n");
-    fclose(piv_rep_file_traj);
+  if (writePINEStraj) {
+    fprintf(PINES_rep_file_traj, "\n#END OF FRAME\n");
+    fclose(PINES_rep_file_traj);
   }
   if (writestride) {
-    if ( getStep() % writepivstride == 0) {
-      fprintf(piv_rep_file, "\n#END OF FRAME: %d \n", getStep());
-      fclose(piv_rep_file);
+    if ( getStep() % writePINESstride == 0) {
+      fprintf(PINES_rep_file, "\n#END OF FRAME: %d \n", getStep());
+      fclose(PINES_rep_file);
     }
   }
 
@@ -1873,7 +1691,7 @@ void PIV::calculate()
   // non-global variables Nder and Scalevol defined to speedup if structures in cycles
   bool Nder=CompDer;
   bool Scalevol=Svol;
-  if(cart2piv) {
+  if(cart2PINES) {
     for(unsigned j=0; j<ann_deriv.size(); j++) {
       for(unsigned i=0; i<ann_deriv[j].size(); i++) {
         for(unsigned k=0; k<3; k++) {ann_deriv[j][i][k]=0.;}
@@ -1886,13 +1704,13 @@ void PIV::calculate()
     }
     // resize vectors to the appropriate sizes and set starting values to zero --NH
 
-    PIV_Pair0.resize(ds_array.size());
-    PIV_Pair1.resize(ds_array.size());
+    PINES_Pair0.resize(ds_array.size());
+    PINES_Pair1.resize(ds_array.size());
 
-    unsigned PIV_element=0;
+    unsigned PINES_element=0;
     for(unsigned j=0; j<Nlist; j++) {
       unsigned limit=0;
-      limit = cPIV[j].size();
+      limit = cPINES[j].size();
       int start_val=0;
 
       int max_solv_atoms = NL_const_size;
@@ -1908,12 +1726,12 @@ void PIV::calculate()
       for(unsigned i=start_val; i<limit; i++) {
         unsigned i0=0;
         unsigned i1=0;
-        // Atom0 and Atom1 are lists that index atoms for PIV elements
+        // Atom0 and Atom1 are lists that index atoms for PINES elements
         i0=Atom0[j][i];
-        // Record the atom IDs for the PIV elements of interest --NH
-        PIV_Pair0[PIV_element] = i0;
+        // Record the atom IDs for the PINES elements of interest --NH
+        PINES_Pair0[PINES_element] = i0;
         i1=Atom1[j][i];
-        PIV_Pair1[PIV_element] = i1;
+        PINES_Pair1[PINES_element] = i1;
         // Pos0 and Pos1 are 1x3 vectors that hold the xyz coordinates of the indexed atoms
         Vector Pos0,Pos1;
         Pos0=getPosition(i0);
@@ -1925,25 +1743,25 @@ void PIV::calculate()
         double dm=distance.modulo();
         // sfs[j] is the parameters for the switching function, which can be chosen to be different for different blocks
         // In this case, all blocks use the same switching function so all sfs[j] are the same function.
-        // Used with .calculate(dm*Fvol, dfunc), the PIV element value is returned and the derivative stored in dfunc
-        double tPIV = sfs[j].calculate(dm*Fvol, dfunc);
+        // Used with .calculate(dm*Fvol, dfunc), the PINES element value is returned and the derivative stored in dfunc
+        double tPINES = sfs[j].calculate(dm*Fvol, dfunc);
 
         double ds_element=0.;
         // Create the ds_array one element at a time --NH
         ds_element = scaling[j]*Fvol*Fvol*dfunc*dm;
-        ds_array[PIV_element] = ds_element;
+        ds_array[PINES_element] = ds_element;
         // Create 1x3 vector of (dr/dx,dr/dy,dr/dz) --NH
         Vector dr_dcoord = distance/dm;
         
         // the xyz components of the distance between atoms is scaled by tmp and added or subtracted to reflect
         // that distance is calculated as Pos1 - Pos0
-        // Calculate ann_deriv values for the current PIV element in the loop --NH
-        ann_deriv[i0][PIV_element] = -ds_element*dr_dcoord;
-        ann_deriv[i1][PIV_element] =  ds_element*dr_dcoord;
+        // Calculate ann_deriv values for the current PINES element in the loop --NH
+        ann_deriv[i0][PINES_element] = -ds_element*dr_dcoord;
+        ann_deriv[i1][PINES_element] =  ds_element*dr_dcoord;
 
         // This m_virial is likely not correct but has been included in case it is necessary to test the code --NH
         m_virial    -= ds_element*Tensor(distance,distance); // Question
-        PIV_element += 1;
+        PINES_element += 1;
 
       }
     }
@@ -1951,17 +1769,17 @@ void PIV::calculate()
     if (!serial && comm.initialized() ) {
       int count = 0;
       for(unsigned j=0; j<Nlist; j++) {
-          for(unsigned i=0; i<cPIV[j].size(); i++) {
+          for(unsigned i=0; i<cPINES[j].size(); i++) {
               count += 1;
           }
       }
       
       comm.Barrier();
-      // SD -- This probably works because cPIV[j] size is variable for each j.
+      // SD -- This probably works because cPINES[j] size is variable for each j.
       for (unsigned j=0; j< Nlist; j++) {
-        for (unsigned k=0; k<cPIV[j].size(); k++) {
-          comm.Sum(cPIV[j][k]);
-          cPIV[j][k] /= comm.Get_size();
+        for (unsigned k=0; k<cPINES[j].size(); k++) {
+          comm.Sum(cPINES[j][k]);
+          cPINES[j][k] /= comm.Get_size();
         }
       }
 
@@ -1991,7 +1809,7 @@ void PIV::calculate()
   unsigned total_count=0;
   for (int j = 0; j < Nlist; j++) {
     unsigned limit=0;
-    limit = cPIV[j].size();
+    limit = cPINES[j].size();
     int start_val=0;
 
     int max_solv_atoms = NL_const_size;
@@ -2007,9 +1825,9 @@ void PIV::calculate()
     for (int i = start_val; i < limit; i++) {
       string comp = "ELEMENT-" + to_string(total_count);
       Value* valueNew=getPntrToComponent(comp);
-      valueNew -> set(cPIV[j][i]);
+      valueNew -> set(cPINES[j][i]);
       // Pass the 3D array to the plumed core --NH
-      // A 2D array is passed for each PIV element (component) --NH
+      // A 2D array is passed for each PINES element (component) --NH
       for(unsigned k=0; k<ann_deriv.size(); k++) {
         setAtomsDerivatives(valueNew, k, ann_deriv[k][total_count]);
       }

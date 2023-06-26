@@ -17,34 +17,34 @@ freely, subject to the following restrictions:
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-#ifndef __PLUMED_piv_vec_PIV_h
-#define __PLUMED_piv_vec_PIV_h
+#ifndef __PLUMED_pines_vec_PINES_h
+#define __PLUMED_pines_vec_PINES_h
 
 
 using namespace std;
 
 namespace PLMD {
-namespace piv {
+namespace pines {
 // Ideally core/Colvar.h should be moved to this directory and Colvar should stay in namespace PLMD::Sasa
 // With this trick, PLMD::Colvar is visible as PLMD::Sasa::Colvar
 using PLMD::Colvar;
 
-class PIV      : public Colvar
+class PINES      : public Colvar
 {
 private:
   bool pbc, serial, timer;
   ForwardDecl<Stopwatch> stopwatch_fwd;
   Stopwatch& stopwatch=*stopwatch_fwd;
   // Added NL_const_size to fix solute-solvent elements as constant size
-  int updatePIV,NL_const_size;
+  int updatePINES,NL_const_size;
   size_t Nprec;
   unsigned Natm,Nlist,NLsize,solv_blocks;
-  double Fvol,Vol0,m_PIVdistance;
+  double Fvol,Vol0,m_PINESdistance;
   std::string ref_file;
   NeighborList *nlall;
   NeighborList *nlreduced;
   std::vector<SwitchingFunction> sfs;
-  std::vector<std:: vector<double> > rPIV;
+  std::vector<std:: vector<double> > rPINES;
   std::vector<double> scaling,r00;
   std::vector<double> nl_skin;
   std::vector<double> fmass;
@@ -75,24 +75,24 @@ private:
   std::vector<double> ds_array;
   // ANN_sum_array is the 1D array (sum dv_d/dv_n) written to an output file for use by the ANN code --NH
   //std::vector<double> ANN_sum_array;
-  // ANN piv derivatives array written to output file for use by ANN code --SD
-  std::vector<std::vector<double>> ANN_piv_deriv;
-  // The PIV_Pair vectors record the atom IDs for the PIV elements that are passed to the VAE --NH
-  std::vector<int> PIV_Pair0;
-  std::vector<int> PIV_Pair1;
+  // ANN pines derivatives array written to output file for use by ANN code --SD
+  std::vector<std::vector<double>> ANN_pines_deriv;
+  // The PINES_Pair vectors record the atom IDs for the PINES elements that are passed to the VAE --NH
+  std::vector<int> PINES_Pair0;
+  std::vector<int> PINES_Pair1;
   Tensor m_virial;
-  // adding a flag (cart2piv) for post-processing a trajectory in cartesian coordinates to a PIV representation
-  bool Svol,cross,direct,doneigh,test,CompDer,com,cart2piv;
-  // -- SD flag for writing a single file containing PIV values when using plumed driver.
-  bool writepivtraj, writestride;
-  // -- SD variables to control output PIV and ANN PIV derivative file during simulation.
-  int writepivstride, writeannstride;
+  // adding a flag (cart2pines) for post-processing a trajectory in cartesian coordinates to a PINES representation
+  bool Svol,cross,direct,doneigh,test,CompDer,com,cart2pines;
+  // -- SD flag for writing a single file containing PINES values when using plumed driver.
+  bool writepinestraj, writestride;
+  // -- SD variables to control output PINES and ANN PINES derivative file during simulation.
+  int writepinesstride, writeannstride;
   // -- SD variables in prepare() function.
   bool invalidateList,firsttime;
 public:
   static void registerKeywords( Keywords& keys );                                                                       
-  explicit PIV(const ActionOptions&); 
-  ~PIV();                                                                                                               
+  explicit PINES(const ActionOptions&); 
+  ~PINES();                                                                                                               
   // active methods:                                                                                                    
   virtual void calculate();
   void checkFieldsAllowed() {}                                                                                           
