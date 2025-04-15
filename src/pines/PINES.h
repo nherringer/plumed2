@@ -19,12 +19,21 @@ freely, subject to the following restrictions:
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 #ifndef __PLUMED_PINES_vec_PINES_h
 #define __PLUMED_PINES_vec_PINES_h
-
+#include <unordered_map>
+#include <set>
+#include <fstream>
+#include "tools/AtomNumber.h"
 
 using namespace std;
 
 namespace PLMD {
 namespace PINES {
+
+struct AtomNumberLess {
+  bool operator()(const AtomNumber& a, const AtomNumber& b) const {
+    return a.index() < b.index();
+  }
+};    
 // Ideally core/Colvar.h should be moved to this directory and Colvar should stay in namespace PLMD::Sasa
 // With this trick, PLMD::Colvar is visible as PLMD::Sasa::Colvar
 using PLMD::Colvar;
@@ -32,75 +41,70 @@ using PLMD::Colvar;
 class PINES      : public Colvar
 {
 private:
-  bool pbc, serial, timer;
-  ForwardDecl<Stopwatch> stopwatch_fwd;
-  Stopwatch& stopwatch=*stopwatch_fwd;
-  // Added NL_const_size to fix solute-solvent elements as constant size
-  int updatePINES,NL_const_size;
-  size_t Nprec;
-  unsigned Natm,Nlist,NLsize,solv_blocks;
-  double Fvol,Vol0,m_PINESdistance;
+
+  int N_Blocks;
+  int total_PIV_length;
+  std::vector<int> steps_since_update;
+  std::vector<int> nstride;
   std::string ref_file;
-  NeighborList *nlall;
-  NeighborList *nlreduced;
   std::vector<SwitchingFunction> sfs;
-  std::vector<std:: vector<double> > rPINES;
-  std::vector<double> scaling,r00;
-  std::vector<double> nl_skin;
-  std::vector<double> fmass;
-  std::vector<bool> dosort;
-  std::vector<Vector> compos;
   std::vector<string> sw;
-  std::vector<NeighborList *> nl;
-  std::vector<NeighborList *> nl_small;
-  std::vector<NeighborList *> nlcom;
-  std::vector<Vector> m_deriv;
-
-  std::vector<unsigned> AtomToResID_Dict;
-  std::vector<unsigned> NList_OW_blocks;
-  std::vector<unsigned> NList_HW_blocks;
-  std::vector<std::vector<AtomNumber>> Plist;
-  std::vector<AtomNumber> listall;
-  std::vector<AtomNumber> listreduced;
-  std::vector<AtomNumber> listnonwater;
-  std::vector<double> nl_cut;
-  std::vector<int> nl_st;
-  std::vector<string> atype;
-
-  // ann_deriv is the 3D array (dv(r)/dxyz) passed to the plumed core --NH
+  std::vector<double> r00;
+  std::vector<std:: vector<double> > PIV;
   std::vector<std:: vector<Vector> > ann_deriv;
-  // dr_dxyz_array is the 3D array (dr/dxyz) used to build ann_deriv and ANN_sum_array --NH
-  std::vector<std:: vector<Vector> > dr_dxyz_array;
-  // ds_array is the 1D array (dv(r)/dr) of the switching function --NH
-  std::vector<double> ds_array;
-  // ANN_sum_array is the 1D array (sum dv_d/dv_n) written to an output file for use by the ANN code --NH
-  //std::vector<double> ANN_sum_array;
-  // ANN PINES derivatives array written to output file for use by ANN code --SD
-  std::vector<std::vector<double>> ANN_PINES_deriv;
-  // The PINES_Pair vectors record the atom IDs for the PINES elements that are passed to the VAE --NH
-  std::vector<int> PINES_Pair0;
-  std::vector<int> PINES_Pair1;
-  Tensor m_virial;
-  // adding a flag (cart2PINES) for post-processing a trajectory in cartesian coordinates to a PINES representation
-  bool Svol,cross,direct,doneigh,test,CompDer,com,cart2PINES;
-  // -- SD flag for writing a single file containing PINES values when using plumed driver.
-  bool writePINEStraj, writestride;
-  // -- SD variables to control output PINES and ANN PINES derivative file during simulation.
-  int writePINESstride, writeannstride;
-  // -- SD variables in prepare() function.
-  bool invalidateList,firsttime;
+
+  std::vector<std:: vector<AtomNumber> > listall;
+  std::vector<std:: vector<AtomNumber> > listreduced;
+  std::set<AtomNumber, AtomNumberLess> listreducedall;
+  std::vector<AtomNumber> listreducedall_vec;
+  std::unordered_map<int,int> atom_ind_hashmap;
+
+  std::vector<bool> stale_tolerance;
+  PDB mypdb;
+  std::vector<string> block_params;
+  std::vector<std::vector<std::vector<AtomNumber> > > block_groups_atom_list;
+  std::vector<int> block_lengths;
+  std::vector<int> Buffer_Pairs;
+  std::vector<int> tot_num_pairs;
+  std::vector<std::vector<std::vector<bool> > > input_filters;
+  std::vector<double> delta_pd;
+  std::vector<double> r_tolerance;
+  std::vector<std::vector<Vector> > PL_atoms_ref_coords;
+  std::vector<std::vector<std::pair<AtomNumber,AtomNumber> > > Exclude_Pairs;
+  std::vector<std::vector<std::vector<string> > > Name_list;
+  std::vector<std::vector<std::vector<AtomNumber> > > ID_list;
+  std::vector<std::vector<std::vector<int> > > ResID_list;
+  std::vector<std::vector<std::pair<double, std::pair<AtomNumber,AtomNumber> > > > vecMaxHeapVecs;
+
+  bool atomMatchesFilters(int n, int g, AtomNumber ind, int resid, const std::string& atom_name);
+  void buildMaxHeapVecBlock(int n, const PDB& mypdb, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap);
+  void updateBlockPairList(int n, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap);
+  double calculateDistance(const AtomNumber& ind0, const AtomNumber& ind1, const PDB& mypdb);
+  std::ofstream log;
+  void logMsg(const std::string& msg, const std::string& section);
+  void logMsg(const Vector& vec, const std::string& section);
+  void resizeAllContainers(int N);
+
 public:
   static void registerKeywords( Keywords& keys );                                                                       
   explicit PINES(const ActionOptions&); 
-  ~PINES();                                                                                                               
-  // active methods:                                                                                                    
+  //~PINES();                                                                                                               
+  // active methods:
+  struct MinCompareDist {
+    bool operator()(const std::pair<double, std::pair<AtomNumber, AtomNumber>>& p1, const std::pair<double, std::pair<AtomNumber, AtomNumber>>& p2) {
+      return p1.first < p2.first; // Min heap
+    }
+  };
+  struct MaxCompareDist {
+    bool operator()(const std::pair<double, std::pair<AtomNumber, AtomNumber>>& p1, const std::pair<double, std::pair<AtomNumber, AtomNumber>>& p2) {
+      return p1.first > p2.first; // Max heap
+    }
+  };
+                                                                                            
   virtual void calculate();
   void checkFieldsAllowed() {}                                                                                           
   // -- SD prepare to requestAtoms during simulation 
   void prepare() override;
-  // -- SD ANN SUM DERIVATIVE                                                                                              
-  std::vector<vector<double>> get_ann_sum_derivative();
-  void Update_NL();
 };
 
 }
