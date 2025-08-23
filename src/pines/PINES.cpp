@@ -34,6 +34,22 @@ along with plumed.  If not, see <http://www.gnu.org/licenses/>.
 #include <unordered_map>
 #include <set>
 #include <numeric>
+#include <omp.h>
+#include <unordered_set>
+#include <utility>
+#include <functional>
+#include <vector>
+
+constexpr int CACHE_LINE_SIZE = 64;
+
+template<typename T>
+struct alignas(CACHE_LINE_SIZE) Padded {
+    T value;
+
+    // Optional constructors
+    Padded() : value() {}
+    explicit Padded(const T& val) : value(val) {}
+};
 
 using namespace std;
 
@@ -59,6 +75,8 @@ namespace PLMD
       keys.add("optional", "RESID", "ResIDs");
       keys.add("optional", "NAME", "Atom Names");
       keys.add("optional", "EXCLUDE_PAIRS", "Excluded pairs");
+      keys.addFlag("DRIVERMODE", false, "Use when post-processing a trajectory. This will force the pair list to be rebuilt at every step (i.e. no pair list)");
+      keys.addFlag("FREEZE_SELECTION", false, "Freeze top-K membership during derivative checks");
       componentsAreNotOptional(keys);
       keys.addOutputComponent("ELEMENT", "default", "Elements of the PINES block"); 
       keys.reset_style("SWITCH", "compulsory");
@@ -88,87 +106,111 @@ namespace PLMD
     }
     
     void PINES::buildMaxHeapVecBlock(int n, const PDB& mypdb, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap) {
-      logMsg("Entering buildMaxHeapVecBlock", "buildMaxHeapVecBlock");
-      logMsg("Block index: " + std::to_string(n), "buildMaxHeapVecBlock");
-      logMsg("heap.size(): " + std::to_string(heap.size()), "buildMaxHeapVecBlock");
-      logMsg("block_groups_atom_list[n][0].size(): " + std::to_string(block_groups_atom_list[n][0].size()), "buildMaxHeapVecBlock");
-      logMsg("block_groups_atom_list[n][1].size(): " + std::to_string(block_groups_atom_list[n][1].size()), "buildMaxHeapVecBlock");
+      //logMsg("Building Pair List for block: " + std::to_string(n), "buildMaxHeapVecBlock");
 
-      bool isFirstStep = (getStep() == 0);
+      int nthreads = omp_get_max_threads();
+      std::vector<std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>> thread_heaps(nthreads);
 
-      std::vector<std::pair<AtomNumber, AtomNumber> > unique_pairs;
+      //logMsg("isFirstBuild[n]? " + std::to_string(isFirstBuild[n]), "buildMaxHeapVecBlock");
+      
+      // Rough estimate, tweak as needed
+      int estimated_pairs_per_thread = block_groups_atom_list[n][0].size() * block_groups_atom_list[n][1].size() / nthreads;
+
+      for (int tid = 0; tid < nthreads; ++tid) {
+	thread_heaps[tid].reserve(estimated_pairs_per_thread);
+      }
+
       heap.clear();
-      logMsg("alpha0", "buildMaxHeapVecBlock");
+      #pragma omp parallel for schedule(dynamic)
       for (int i = 0; i < block_groups_atom_list[n][0].size(); i++) {
-        logMsg("alpha1", "buildMaxHeapVecBlock");
         AtomNumber ind0 = block_groups_atom_list[n][0][i];
-        logMsg("alpha2", "buildMaxHeapVecBlock");
-        Vector Pos0 = isFirstStep ? mypdb.getPosition(ind0) : getPosition(atom_ind_hashmap[ind0.index()]);
-        logMsg("alpha3", "buildMaxHeapVecBlock");
+	Vector Pos0 = isFirstBuild[n] ? mypdb.getPosition(ind0) : getPosition(atom_ind_hashmap[ind0.index()]);
+        int tid = omp_get_thread_num();
+        auto& local_heap = thread_heaps[tid];
+        std::unordered_set<std::pair<AtomNumber, AtomNumber>, pair_hash> local_unique_pairs;
+        // logMsg("ind0: " + std::to_string(ind0.index()), "buildMaxHeapVecBlock");
+        // logMsg("Num pairs in heap: " + std::to_string(block_groups_atom_list[n][0].size()), "buildMaxHeapVecBlock");
+        // logMsg(Pos0, "buildMaxHeapVecBlock");
         for (int j = 0; j < block_groups_atom_list[n][1].size(); j++) {
           AtomNumber ind1 = block_groups_atom_list[n][1][j];
-
+          // logMsg("ind1: " + std::to_string(ind1.index()), "buildMaxHeapVecBlock");
+          // logMsg("Num pairs in heap: " + std::to_string(block_groups_atom_list[n][1].size()), "buildMaxHeapVecBlock");
           if (ind1 == ind0) continue;
 
           auto test_pair = std::make_pair(ind0, ind1);
           auto reverse_pair = std::make_pair(ind1, ind0);
     
           if (std::find(Exclude_Pairs[n].begin(), Exclude_Pairs[n].end(), test_pair) != Exclude_Pairs[n].end() ||
-              std::find(Exclude_Pairs[n].begin(), Exclude_Pairs[n].end(), reverse_pair) != Exclude_Pairs[n].end() ||
-              std::find(unique_pairs.begin(), unique_pairs.end(), reverse_pair) != unique_pairs.end()) {
+              std::find(Exclude_Pairs[n].begin(), Exclude_Pairs[n].end(), reverse_pair) != Exclude_Pairs[n].end()) {
             continue;
-          } else {
-            unique_pairs.push_back(test_pair);
           }
-    
-          Vector Pos1 = isFirstStep ? mypdb.getPosition(ind1) : getPosition(atom_ind_hashmap[ind1.index()]);
-          double mag = pbcDistance(Pos0, Pos1).modulo();
+          if (local_unique_pairs.count(reverse_pair)) continue;
+          local_unique_pairs.insert(test_pair);
 
-          heap.push_back({mag, {ind0, ind1}});
-          std::push_heap(heap.begin(), heap.end(), MaxCompareDist());
-          logMsg("alpha4", "buildMaxHeapVecBlock");
-          if (heap.size() > tot_num_pairs[n]) {
-            std::pop_heap(heap.begin(), heap.end(), MaxCompareDist());
-            heap.pop_back();
-          }
+          Vector Pos1 = isFirstBuild[n] ? mypdb.getPosition(ind1) : getPosition(atom_ind_hashmap[ind1.index()]);
+          
+          //logMsg(Pos1, "buildMaxHeapVecBlock");
+          double mag = pbcDistance(Pos0, Pos1).modulo();
+          //logMsg("pairdist: " + std::to_string(mag), "buildMaxHeapVecBlock");
+          local_heap.emplace_back(mag, std::make_pair(ind0, ind1));
         }
       }
-      logMsg("alpha5", "buildMaxHeapVecBlock");
-      std::sort(heap.begin(), heap.end(), MinCompareDist());
-      logMsg("alpha6", "buildMaxHeapVecBlock");
-      int chk1 = block_lengths[n]-1;
-      int chk2 = chk1 + Buffer_Pairs[n];
+      //     heap.push_back({mag, {ind0, ind1}});
+      //     std::push_heap(heap.begin(), heap.end(), MinCompareDist());
+      //     if (heap.size() > tot_num_pairs[n]) {
+      //       std::pop_heap(heap.begin(), heap.end(), MinCompareDist());
+      //       heap.pop_back();
+      //     }
+      //   }
+      // }
+        // Flatten all thread-local heaps into one vector
+      std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>> all_pairs;
+      for (auto& th : thread_heaps) {
+        all_pairs.insert(all_pairs.end(), th.begin(), th.end());
+      }
+
+      // Build max-heap from top-K shortest pairs
+      std::sort(all_pairs.begin(), all_pairs.end(), MinCompareDist());
+      size_t K = std::min(static_cast<size_t>(tot_num_pairs[n]), all_pairs.size());
+      heap.assign(all_pairs.begin(), all_pairs.begin() + K);
+      //std::make_heap(heap.begin(), heap.end(), MaxCompareDist());
+      //logMsg("Heap created succesfully", "buildMaxHeapVecBlock");
+      std::sort(heap.begin(), heap.end(), MaxCompareDist());
+      int chk1 = 0;
+      int chk2 = Buffer_Pairs[n];
+      //logMsg("heap[chk1].first: " + std::to_string(heap[chk1].first), "buildMaxHeapVecBlock");
+      //logMsg("heap[chk2].first: " + std::to_string(heap[chk2].first), "buildMaxHeapVecBlock");
       delta_pd[n] = heap[chk1].first - heap[chk2].first;
       r_tolerance[n] = delta_pd[n]/4;
       listreduced[n].clear();
       std::set<AtomNumber, AtomNumberLess> uniqueAtoms;
-      logMsg("alpha7", "buildMaxHeapVecBlock");
       for (const auto& pair : heap) {
         uniqueAtoms.insert(pair.second.first);  // Atom1
         uniqueAtoms.insert(pair.second.second); // Atom2
       }
       for (const auto& atom : uniqueAtoms) {
         listreduced[n].push_back(atom);
-    }
-      logMsg("alpha8", "buildMaxHeapVecBlock");
-      logMsg("listreduced[" + std::to_string(n) + "].size(): " + std::to_string(listreduced[n].size()), "buildMaxHeapVecBlock");
+      }
+      //logMsg("listreduced.size(): " + std::to_string(listreduced[n].size()), "buildMaxHeapVecBlock");
+      if(driver_mode || isFirstBuild[n]){
+        listreduced[n] = listall[n];
+      }
+      //logMsg("listreduced.size() after drivermode change: " + std::to_string(listreduced[n].size()), "buildMaxHeapVecBlock");
+      //logMsg("listreduced[" + std::to_string(n) + "].size(): " + std::to_string(listreduced[n].size()), "buildMaxHeapVecBlock");
       PL_atoms_ref_coords[n].resize(listreduced[n].size());
-      logMsg("PL_atoms_ref_coords[" + std::to_string(n) + "].size(): " + std::to_string(PL_atoms_ref_coords[n].size()), "buildMaxHeapVecBlock");
+      //logMsg("PL_atoms_ref_coords[" + std::to_string(n) + "].size(): " + std::to_string(PL_atoms_ref_coords[n].size()), "buildMaxHeapVecBlock");
       for (int i=0; i<listreduced[n].size(); i++)
       {
         PL_atoms_ref_coords[n][i].zero();
-        logMsg("listreduced[" + std::to_string(n) + "][" + std::to_string(i) + "].index(): " + std::to_string(listreduced[n][i].index()), "buildMaxHeapVecBlock");
-        Vector debug_pos = isFirstStep ? mypdb.getPosition(listreduced[n][i]) : getPosition(atom_ind_hashmap[listreduced[n][i].index()]);
-        logMsg(debug_pos, "buildMaxHeapVecBlock");
-        PL_atoms_ref_coords[n][i] = isFirstStep ? mypdb.getPosition(listreduced[n][i]) : getPosition(atom_ind_hashmap[listreduced[n][i].index()]);
+        //logMsg("listreduced[" + std::to_string(n) + "][" + std::to_string(i) + "].index(): " + std::to_string(listreduced[n][i].index()), "buildMaxHeapVecBlock");
+        PL_atoms_ref_coords[n][i] = isFirstBuild[n] ? mypdb.getPosition(listreduced[n][i]) : getPosition(atom_ind_hashmap[listreduced[n][i].index()]);
       }
-      logMsg("alpha9", "buildMaxHeapVecBlock");
-      ann_deriv.resize(listreduced[n].size());
-      for (int i = 0; i < ann_deriv.size(); i++)
-      {
-        ann_deriv[i].resize(total_PIV_length);
-      }
-      logMsg("alpha10", "buildMaxHeapVecBlock");
+      isFirstBuild[n] = false;
+      // ann_deriv.resize(listreduced[n].size());
+      // for (int i = 0; i < ann_deriv.size(); i++)
+      // {
+      //   ann_deriv[i].resize(total_PIV_length);
+      // }
     }
     
     void PINES::updateBlockPairList(int n, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap) {
@@ -176,33 +218,45 @@ namespace PLMD
       // This is simply to update the pair distances in the MaxHeap/Pairlist with the new atom positions
       // and rearrange the ordering in the MaxHeap/Pairlisat
 
+      plumed_massert((int)heap.size() >= tot_num_pairs[n], "heap too small");
+      plumed_massert(!listreducedall_vec.empty(), "positions requested before requestAtoms");
+
+      #pragma omp parallel for
       for (int i = 0; i < tot_num_pairs[n]; i++)
       {
         AtomNumber ind0 = heap[i].second.first;
         AtomNumber ind1 = heap[i].second.second;
-        heap[i].first = calculateDistance(ind0,ind1,mypdb);
+	auto it0 = atom_ind_hashmap.find(ind0.index());
+        auto it1 = atom_ind_hashmap.find(ind1.index());
+        plumed_massert(it0 != atom_ind_hashmap.end() && it1 != atom_ind_hashmap.end(),"updateBlockPairList: atom index not requested");
+        heap[i].first = calculateDistance(n,ind0,ind1,mypdb);
       }
       std::nth_element(heap.begin(), heap.begin() + block_lengths[n], heap.end(), MinCompareDist());
-      std::sort(heap.begin(), heap.begin() + block_lengths[n], MinCompareDist());
+      std::sort(heap.begin(), heap.begin() + block_lengths[n], MaxCompareDist());
+      // for (int i = 0; i < tot_num_pairs[n]; i++)
+      // {
+      //   logMsg("Pair: " + std::to_string(heap[i].second.first.index()) + ", " + std::to_string(heap[i].second.second.index()) + "; Dist: " + std::to_string(heap[i].first),"updateBlockPairList");
+      // }
     }
     
-    double PINES::calculateDistance(const AtomNumber& ind0, const AtomNumber& ind1, const PDB& mypdb) {
-      bool isFirstStep = (getStep() == 0);
-      Vector Pos0 = isFirstStep ? mypdb.getPosition(ind0) : getPosition(atom_ind_hashmap[ind0.index()]);
-      Vector Pos1 = isFirstStep ? mypdb.getPosition(ind1) : getPosition(atom_ind_hashmap[ind1.index()]);
+    double PINES::calculateDistance(int n, const AtomNumber& ind0, const AtomNumber& ind1, const PDB& mypdb) {
+      //bool isFirstBuild[n] = false; // (getStep() == 0);
+      Vector Pos0 = isFirstBuild[n] ? mypdb.getPosition(ind0) : getPosition(atom_ind_hashmap[ind0.index()]);
+      Vector Pos1 = isFirstBuild[n] ? mypdb.getPosition(ind1) : getPosition(atom_ind_hashmap[ind1.index()]);
       return pbcDistance(Pos0, Pos1).modulo();
     }
 
     void PINES::resizeAllContainers(int N) {
       // Outer containers
-      nstride.resize(N);
-      steps_since_update.resize(N);
+      nstride.resize(N,1);
+      steps_since_update.resize(N, 0);
       block_params.resize(N);
       block_groups_atom_list.resize(N);
       block_lengths.resize(N);
       Buffer_Pairs.resize(N);
       tot_num_pairs.resize(N);
       Exclude_Pairs.resize(N);
+      all_g1g2_pairs.resize(N);
       vecMaxHeapVecs.resize(N);
       PIV.resize(N);
       listall.resize(N);
@@ -219,6 +273,8 @@ namespace PLMD
       ResID_list.resize(N);
       Name_list.resize(N);
       atom_ind_hashmap.clear();
+      latched_pairs.resize(N);
+      isFirstBuild.resize(N,true);
     
       // Per-block inner structures
       for (int n = 0; n < N; n++) {
@@ -238,19 +294,59 @@ namespace PLMD
       }
     }    
 
+    // member state
+    // static long inited_step = -1;
+    // static std::vector<char> preupdated_block;  // size N_Blocks, resets each step
+
+    bool PINES::ensureBlockUpdated(int n) {
+      const bool do_update = true; //(plumed.getStep() == 0 || driver_mode);
+      if (!do_update) return false;          // not an update step
+      if ((int)vecMaxHeapVecs[n].size() != tot_num_pairs[n]) {
+        buildMaxHeapVecBlock(n, mypdb, vecMaxHeapVecs[n]);  // safe: PDB-based build
+      }
+      if (preupdated_block[n]) return false; // already updated this step
+      updateBlockPairList(n, vecMaxHeapVecs[n]);            // uses getPosition(); safe in calculate()
+      preupdated_block[n] = 1;
+      return true;
+    }
+
+    void PINES::latchFromCurrentHeaps() {
+      if ((int)latched_pairs.size() != N_Blocks) latched_pairs.resize(N_Blocks);
+      for (int n = 0; n < N_Blocks; ++n) {
+        latched_pairs[n].resize(block_lengths[n]);
+        const bool do_update = true; // (plumed.getStep() == 0 || steps_since_update[n] != 1 || driver_mode);
+        if (do_update) {
+          // top-K prefix (already sorted by ensureBlockUpdated if it ran)
+          for (int i = 0; i < block_lengths[n]; ++i) {
+            latched_pairs[n][i] = vecMaxHeapVecs[n][i].second;
+	  }
+        } else {
+          // buffered slice
+          for (int i = 0; i < block_lengths[n]; ++i) {
+	    latched_pairs[n][i] = vecMaxHeapVecs[n][i + Buffer_Pairs[n]].second;
+	  }
+        }
+      }
+    }
+
     void PINES::logMsg(const std::string& msg, const std::string& section) {
       log << "[" << plumed.getStep() << "] "
           << "[" << section << "] " << msg << std::endl;
     }
 
     void PINES::logMsg(const Vector& vec, const std::string& section) {
-      log << "[" << section << "] Vector = (" 
+      log << "[" << plumed.getStep() << "] "
+          << "[" << section << "] Vector = (" 
           << vec[0] << ", " << vec[1] << ", " << vec[2] << ")" << std::endl;
     }
 
     PINES::PINES(const ActionOptions &ao) : PLUMED_COLVAR_INIT(ao),
                                             N_Blocks(1),
                                             total_PIV_length(1),
+                                            driver_mode(false),
+					    freeze_selection(false),
+					    last_step_latched(-1),
+					    inited_step(-1),
                                             steps_since_update(std::vector<int>(1)),
                                             nstride(std::vector<int>(1,10)),
                                             ref_file(std::string()),
@@ -287,14 +383,17 @@ namespace PLMD
                                             Name_list(std::vector<std::vector<std::vector<string> > >()),
                                             ID_list(std::vector<std::vector<std::vector<AtomNumber> > >()),
                                             ResID_list(std::vector<std::vector<std::vector<int> > >()),
-                                            vecMaxHeapVecs()
+                                            all_g1g2_pairs(std::vector<char>()),
+                                            vecMaxHeapVecs(),
+					    latched_pairs(std::vector<std::vector<std::pair<AtomNumber,AtomNumber> > >()),
+					    preupdated_block(std::vector<char>()),
+					    isFirstBuild(std::vector<bool>())
     {
       log.open("pines_debug.log", std::ios::out);
       if (!log.is_open()) {
         error("Failed to open debug log file.");
       }
 
-      logMsg("Constructor", "Finished initializer list");
       // Reference PDB file from which atom names, types, ids, and initial positions are determined
       parse("REF_FILE", ref_file);
       FILE *fp = fopen(ref_file.c_str(), "r");
@@ -307,7 +406,11 @@ namespace PLMD
 
       // Create variable to get number of blocks
       parse("N_BLOCKS", N_Blocks);
+      parseFlag("DRIVERMODE", driver_mode);
+      parseFlag("FREEZE_SELECTION", freeze_selection);
+      //logMsg("N_Blocks: " + std::to_string(N_Blocks), "Constructor");
       resizeAllContainers(N_Blocks);
+
 
       // Check that the correct number of Blocks are specified
       for (unsigned n = 0; n < N_Blocks; n++)
@@ -417,10 +520,15 @@ namespace PLMD
           nstride[n] = 25;
         }
         tot_num_pairs[n] = block_lengths[n] + Buffer_Pairs[n];
+        // logMsg("N: " + std::to_string(n), "Constructor");
+        // logMsg("Nstride: " + std::to_string(nstride[n]), "Constructor");
+        // logMsg("Buffer_pairs: " + std::to_string(Buffer_Pairs[n]), "Constructor");
+        // logMsg("Block_lengths: " + std::to_string(block_lengths[n]), "Constructor");
+        // logMsg("Total_num_pairs: " + std::to_string(tot_num_pairs[n]), "Constructor");
       }
 
       total_PIV_length = std::accumulate(block_lengths.begin(), block_lengths.end(), 0);
-
+      // logMsg("total_PIV_length: " + std::to_string(total_PIV_length), "Constructor");
       for (int n = 0; n < N_Blocks; n++)
       {
         // pseudo-code ish
@@ -429,14 +537,17 @@ namespace PLMD
           if (ID_list[n][g].size() > 0)
           {
             input_filters[n][g][0] = true;
+            //logMsg("n: " + std::to_string(n) + "; g: " + std::to_string(g) + "-- ID Keyword", "Constructor");
           }
           if (ResID_list[n][g].size() > 0)
           {
             input_filters[n][g][1] = true;
+            //logMsg("n: " + std::to_string(n) + "; g: " + std::to_string(g) + "-- ResID Keyword", "Constructor");
           }
           if (Name_list[n][g].size() > 0)
           {
             input_filters[n][g][2] = true;
+            //logMsg("n: " + std::to_string(n) + "; g: " + std::to_string(g) + "-- Name Keyword", "Constructor");
           }
         }
       }
@@ -455,10 +566,25 @@ namespace PLMD
           {
             if (atomMatchesFilters(n, g, ind, resid, atom_name)) {
               block_groups_atom_list[n][g].push_back(ind);
+              //logMsg("n: " + std::to_string(n) + "; g: " + std::to_string(g) + ";  block_groups_atom_list[n][g]: " + std::to_string(ind.index()), "Constructor");
               atom_added = true;
             }
           }
           if (atom_added) listall[n].push_back(ind);
+        }
+      }
+
+      int g1g2_pairs;
+      for (int n = 0; n < N_Blocks; n++)
+      {
+        g1g2_pairs = block_groups_atom_list[n][0].size() * block_groups_atom_list[n][1].size() - Exclude_Pairs[n].size();
+        if (g1g2_pairs == tot_num_pairs[n])
+        {
+          all_g1g2_pairs[n] = 1;
+        } 
+        else
+        {
+          all_g1g2_pairs[n] = 0;
         }
       }
 
@@ -476,10 +602,9 @@ namespace PLMD
         Tools::convert(n + 1, num);
         if (errors.length() != 0) error("problem reading SWITCH" + num + " keyword : " + errors);
         r00[n] = sfs[n].get_r0();
+        //logMsg("n: " + std::to_string(n) + "; r00: " + std::to_string(r00[n]), "Constructor");
       }
       checkRead();
-      logMsg("Constructor", "Parsed all keywords/values");
-      log.flush();
 
       int total_count = 0;
       for (int n = 0; n < N_Blocks; n++)
@@ -495,16 +620,16 @@ namespace PLMD
     }
 
     void PINES::prepare(){
-      logMsg("Prepare", "Made it to prepare");
       bool heap_refreshed = false;
       bool stale_refresh_prep = false;
-      for (int n = 0; n < N_Blocks; n++)
-      {
-        if (steps_since_update[n] == 0){
+      for (int n = 0; n < N_Blocks; n++){
+        if (steps_since_update[n] == 0 || plumed.getStep() == 0 || driver_mode || (int)vecMaxHeapVecs[n].size() != tot_num_pairs[n]){
           buildMaxHeapVecBlock(n, mypdb, vecMaxHeapVecs[n]);
           heap_refreshed = true;
         }
-        else if(steps_since_update[n] >= nstride[n] || stale_tolerance[n]){
+        else if((steps_since_update[n] >= nstride[n] || stale_tolerance[n]) && !all_g1g2_pairs[n]){
+          //logMsg("Pair List " + std::to_string(n) + " is stale. All g1/g2 atoms are being requested to rebuild pair list from scratch.", "Prepare");
+          //logMsg( "Nstride: " + std::to_string(nstride[n]) + "; Steps Since Update: " + std::to_string(steps_since_update[n]), "Prepare");
           listreduced[n] = listall[n];
           stale_refresh_prep = true;
           steps_since_update[n] = -1;
@@ -520,25 +645,47 @@ namespace PLMD
         }
         atom_ind_hashmap.clear();
         listreducedall_vec = std::vector<AtomNumber>(listreducedall.begin(), listreducedall.end());
+        //logMsg("listreducedall_vec size: " + std::to_string(listreducedall_vec.size()), "Prepare");
         for (int i=0; i < listreducedall_vec.size(); i++) atom_ind_hashmap[listreducedall_vec[i].index()] = i;
         requestAtoms(listreducedall_vec);
         ann_deriv.resize(listreducedall_vec.size());
 
         for (int i=0; i < ann_deriv.size(); i++) ann_deriv[i].resize(total_PIV_length);
+        
       }
     }
       
     void PINES::calculate()
     {
-      logMsg("Calculate", "Made it to calculate");
-#pragma region VarsAndToleranceCheck
+      const long step = plumed.getStep();
+      if (inited_step == -1) {
+	for (int n =0; n < N_Blocks; n++) buildMaxHeapVecBlock(n, mypdb, vecMaxHeapVecs[n]);
+      }
+      if (step != inited_step) {
+        if ((int)preupdated_block.size() != N_Blocks) preupdated_block.assign(N_Blocks, 0);
+        else std::fill(preupdated_block.begin(), preupdated_block.end(), 0);
+
+        // One pass: ensure any block that should update does so now (once per step)
+        for (int n = 0; n < N_Blocks; n++) ensureBlockUpdated(n);
+
+        // Optional: latch here (membership/order frozen for this step)
+        if (freeze_selection) latchFromCurrentHeaps();
+
+	for (int n = 0; n < N_Blocks; n++){
+	  logMsg("_________________N: "+std::to_string(n)+"____________________\n","Calculate");
+	  for (int p = 0; p < vecMaxHeapVecs[n].size(); p++) logMsg("P: "+std::to_string(vecMaxHeapVecs[n][p].first)+"\n","Calculate");
+	}
+        inited_step = step;
+      }
 
       Vector ref_xyz, step_xyz;
       AtomNumber aID;
-      float delta_r;
+      double delta_r;
 
+      timer.start("toleranceCheck");
+      
       for(int n = 0; n < N_Blocks; n++){
-        if(steps_since_update[n] > 0 && steps_since_update[n] < nstride[n]){
+        if(steps_since_update[n] > 0 && steps_since_update[n] < nstride[n] && r_tolerance[n] > 0.0 && !all_g1g2_pairs[n]){
           // No point in checking if ssu is 0 because ssu is reference
           // No point in checking if ssu is nstride - 1 because next step will always trigger update anyway
           // Things I'm pretending exist:
@@ -553,95 +700,242 @@ namespace PLMD
             delta_r = pbcDistance(ref_xyz, step_xyz).modulo();
             if(delta_r >= r_tolerance[n]){
               stale_tolerance[n] = true;
+              //logMsg("Stale tolerance triggered for atom: " + std::to_string(aID.index()), "Calculate");
+              //logMsg("delta_r: " + std::to_string(delta_r) + "; r_tolerance: " + std::to_string(r_tolerance[n]), "Calculate");
             }
           }
         }
       }
-#pragma endregion
-#pragma region UpdatePLs
-
-      // Build ann_deriv
-      for (unsigned j = 0; j < ann_deriv.size(); j++)
-      {
-        for (unsigned i = 0; i < ann_deriv[j].size(); i++)
-        {
-          for (unsigned k = 0; k < 3; k++)
-          {
-            ann_deriv[j][i][k] = 0.;
-          }
+      timer.stop("toleranceCheck");
+      const Vector zeroVec(0., 0., 0.);
+      timer.start("setToZero");
+      #pragma omp parallel for schedule(static)
+      for (unsigned j = 0; j < ann_deriv.size(); j++) {
+        for (unsigned i = 0; i < ann_deriv[j].size(); i++) {
+          ann_deriv[j][i] = zeroVec;
         }
       }
 
-      for (unsigned n = 0; n < N_Blocks; n++)
-      {
+      #pragma omp parallel for schedule(static)
+      for (unsigned n = 0; n < N_Blocks; n++) {
         PIV[n].resize(block_lengths[n]);
-        for (unsigned i = 0; i < block_lengths[n]; i++)
-        {
+        for (unsigned i = 0; i < block_lengths[n]; i++) {
           PIV[n][i] = 0.;
         }
       }
 
+
+      timer.stop("setToZero");
+
+//      timer.start("setToZero");
+//      // Build ann_deriv
+//      for (unsigned j = 0; j < ann_deriv.size(); j++)
+//      {
+//        for (unsigned i = 0; i < ann_deriv[j].size(); i++)
+//        {
+//          for (unsigned k = 0; k < 3; k++)
+//          {
+//            ann_deriv[j][i][k] = 0.;
+//          }
+//        }
+//      }
+//      for (unsigned n = 0; n < N_Blocks; n++)
+//      {
+//        PIV[n].resize(block_lengths[n]);
+//        for (unsigned i = 0; i < block_lengths[n]; i++)
+//        {
+//          PIV[n][i] = 0.;
+//        }
+//      }
+//
+//      int PINES_element = 0;
+//      timer.stop("setToZero");
+
+      timer.start("bigCalc");
       int PINES_element = 0;
-      for (unsigned n = 0; n < N_Blocks; n++) {
-        if (steps_since_update[n] != 1){
-          updateBlockPairList(n, vecMaxHeapVecs[n]);
+      if (freeze_selection) {
+        for (int n = 0; n < N_Blocks; ++n) {
+	  //ensureBlockUpdated(n);
+	  logMsg("***************N: "+std::to_string(n)+"***************\n","bigCalc");
+          for (int i = 0; i < block_lengths[n]; ++i) {
+            const auto& pr = latched_pairs[n][i];
+            int a0 = atom_ind_hashmap[pr.first.index()];
+            int a1 = atom_ind_hashmap[pr.second.index()];
+            Vector r0 = getPosition(a0);
+	    Vector r1 = getPosition(a1);
+	    double mod_dist = pbcDistance(r0, r1).modulo();
+            Vector dr = pbcDistance(r0, r1) / mod_dist;
+	    logMsg("P: "+std::to_string(vecMaxHeapVecs[n][i].first)+"\n","bigCalc");
+
+            double dfunc = 0.0;
+            PIV[n][i] = sfs[n].calculate(mod_dist, dfunc);
+            double ds = dfunc * mod_dist;
+            ann_deriv[a0][PINES_element] = -ds * dr;
+            ann_deriv[a1][PINES_element] =  ds * dr;
+            PINES_element += 1;
+          }
         }
+      } else{
+      for (unsigned n = 0; n < N_Blocks; n++) {
+        // bool updated = false;
+	// timer.start("updateBPL");
+        // if (step == 0 || steps_since_update[n] != 1 || driver_mode) {
+	  // updateBlockPairList(n, vecMaxHeapVecs[n]);
+        ensureBlockUpdated(n);
+	bool updated = true;
+        // }
+	// timer.stop("updateBPL");
+        //logMsg("Switching Function Parameters: " + sfs[n].description(), "Calculate");
+        //logMsg("Steps Since Update: " + std::to_string(steps_since_update[n]), "Calculate");
         for (int i=0; i < block_lengths[n]; i++) {
           double ds_element = 0.;
           double dfunc = 0.;
           int local_aid0, local_aid1;
-          PIV[n][i] = sfs[n].calculate(vecMaxHeapVecs[n][i].first, dfunc);
-          local_aid0 = atom_ind_hashmap[vecMaxHeapVecs[n][i].second.first.index()];
-          local_aid1 = atom_ind_hashmap[vecMaxHeapVecs[n][i].second.second.index()];
+          int piv_ind;
+          if (updated){
+            piv_ind = i;
+          }
+          else{
+            piv_ind = i + Buffer_Pairs[n];
+          }
+          //logMsg("Pair Distance: Dist[" + std::to_string(n) + "][" + std::to_string(i) + "]= " + std::to_string(vecMaxHeapVecs[n][i].first), "Calculate");
+	  timer.start("sfs");
+          PIV[n][i] = sfs[n].calculate(vecMaxHeapVecs[n][piv_ind].first, dfunc);
+          timer.stop("sfs");
+	  //logMsg("PIV Values: PIV[" + std::to_string(n) + "][" + std::to_string(i) + "]= " + std::to_string(PIV[n][i]), "Calculate");
+	  timer.start("distCalc");
+          local_aid0 = atom_ind_hashmap[vecMaxHeapVecs[n][piv_ind].second.first.index()];
+          local_aid1 = atom_ind_hashmap[vecMaxHeapVecs[n][piv_ind].second.second.index()];
           Vector Pos0 = getPosition(local_aid0);
           Vector Pos1 = getPosition(local_aid1);
-          Vector dr_dcoord = pbcDistance(Pos0, Pos1) / vecMaxHeapVecs[n][i].first;
-          ds_element = dfunc * vecMaxHeapVecs[n][i].first;
+          Vector dr_dcoord = pbcDistance(Pos0, Pos1) / vecMaxHeapVecs[n][piv_ind].first;
+	  timer.stop("distCalc");
+	  timer.start("derivCalc");
+          ds_element = dfunc * vecMaxHeapVecs[n][piv_ind].first;
           ann_deriv[local_aid0][PINES_element] = -ds_element * dr_dcoord;
           ann_deriv[local_aid1][PINES_element] = ds_element * dr_dcoord;
+	  timer.stop("derivCalc");
+          //logMsg("ann_deriv[" + std::to_string(local_aid0) + "][" + std::to_string(PINES_element) + "]: ", "Calculate");
+          //logMsg(ann_deriv[local_aid0][PINES_element], "Calculate");
+          //logMsg("ann_deriv[" + std::to_string(local_aid1) + "][" + std::to_string(PINES_element) + "]: ", "Calculate");
+          //logMsg(ann_deriv[local_aid1][PINES_element], "Calculate");
           PINES_element += 1;
         }
       }
-#pragma endregion
-#pragma region parallelizationAndPassing
-      if (comm.initialized())
-      {
-        int count = 0;
-        for (unsigned j = 0; j < N_Blocks; j++)
-        {
-          for (unsigned i = 0; i < PIV[j].size(); i++)
-          {
-            count += 1;
+      }
+
+      timer.stop("bigCalc");
+      timer.start("commStuff");
+      timer.start("commStuff");
+
+      if (comm.initialized()) {
+        // Flatten PIV
+        std::vector<double> flat_PIV;
+        std::vector<int> piv_sizes;
+        for (const auto& vec : PIV) {
+          piv_sizes.push_back(vec.size());
+          flat_PIV.insert(flat_PIV.end(), vec.begin(), vec.end());
+        }
+      
+        // Flatten ann_deriv
+        std::vector<double> flat_deriv;
+        std::vector<std::pair<int, int>> deriv_shapes;
+        for (const auto& atom_deriv : ann_deriv) {
+          deriv_shapes.emplace_back(atom_deriv.size(), 3);
+          for (const auto& val : atom_deriv) {
+            flat_deriv.insert(flat_deriv.end(), val[0]);
+            flat_deriv.insert(flat_deriv.end(), val[1]);
+            flat_deriv.insert(flat_deriv.end(), val[2]);
           }
         }
-
-        comm.Barrier();
-
-        for (unsigned j = 0; j < N_Blocks; j++)
+      
+        // Perform global summation ONCE per array
+        comm.Sum(flat_PIV);
+        comm.Sum(flat_deriv);
+      
+        // Unflatten PIV
         {
-          for (unsigned k = 0; k < PIV[j].size(); k++)
-          {
-            comm.Sum(PIV[j][k]);
-            PIV[j][k] /= comm.Get_size();
+          size_t idx = 0;
+          for (size_t j = 0; j < N_Blocks; ++j) {
+            for (int i = 0; i < piv_sizes[j]; ++i) {
+              PIV[j][i] = flat_PIV[idx++];
+            }
           }
         }
-
-        if (!ann_deriv.empty())
+      
+        // Unflatten ann_deriv
         {
-          for (unsigned i = 0; i < ann_deriv.size(); i++)
-          {
-            for (unsigned j = 0; j < ann_deriv[j].size(); j++)
-            {
-              for (unsigned k = 0; k < 3; k++)
-              {
-                comm.Sum(ann_deriv[i][j][k]);
-                ann_deriv[i][j][k] /= comm.Get_size();
-              }
+          size_t idx = 0;
+          for (size_t i = 0; i < ann_deriv.size(); ++i) {
+            int ncols = deriv_shapes[i].first;
+            for (int j = 0; j < ncols; ++j) {
+              ann_deriv[i][j][0] = flat_deriv[idx++];
+              ann_deriv[i][j][1] = flat_deriv[idx++];
+              ann_deriv[i][j][2] = flat_deriv[idx++];
             }
           }
         }
       }
 
+//      if (comm.initialized())
+//      {
+//        int count = 0;
+//        for (unsigned j = 0; j < N_Blocks; j++)
+//        {
+//          for (unsigned i = 0; i < PIV[j].size(); i++)
+//          {
+//            count += 1;
+//          }
+//        }
+//
+//        comm.Barrier();
+//
+//        for (unsigned j = 0; j < N_Blocks; j++)
+//        {
+//          for (unsigned k = 0; k < PIV[j].size(); k++)
+//          {
+//            comm.Sum(PIV[j][k]);
+//            PIV[j][k] /= comm.Get_size();
+//          }
+//        }
+//
+//        if (!ann_deriv.empty())
+//        {
+//          for (unsigned i = 0; i < ann_deriv.size(); i++)
+//          {
+//            for (unsigned j = 0; j < ann_deriv[j].size(); j++)
+//            {
+//              for (unsigned k = 0; k < 3; k++)
+//              {
+//                comm.Sum(ann_deriv[i][j][k]);
+//                ann_deriv[i][j][k] /= comm.Get_size();
+//              }
+//            }
+//          }
+//        }
+//      }
+//
+      timer.stop("commStuff");
+
+//      Tensor box = pbc.getBox();
+//      std::vector<Vector> scaled(Natoms);
+//      for (int a=0;a<Natoms;++a) scaled[a] = pbc.realToScaled(getPosition(a));
+
+// now loop over components
+//      for (int col = 0; col < total_PIV_length; ++col) {
+//        Tensor dSdB; dSdB.zero();
+//        for (int a=0;a<Natoms;++a) {
+//          const Vector gi = ann_deriv[a][col];
+//          if (gi[0]==0 && gi[1]==0 && gi[2]==0) continue;
+//          const Vector si = scaled[a];
+//          for (int i0=0;i0<3;++i0) for (int k0=0;k0<3;++k0)
+//            dSdB(i0,k0) += si[i0] * gi[k0];
+//      }
+//    Tensor V = - matmul(box.transpose(), dSdB);
+//
+//      Value* v = copyOutput(col);
+
+      timer.start("valuePass");
       // Pass values and derivates to next stage
       unsigned total_count = 0;
       for (unsigned j = 0; j < N_Blocks; j++)
@@ -658,7 +952,84 @@ namespace PLMD
           total_count += 1;
         }
       }
-#pragma endregion
+      timer.stop("valuePass");
+//      setBoxDerivatives(col, V)
+      
+//      timer.start("valuePass");
+//      int natoms = ann_deriv.size();
+//      unsigned nelements = 0;
+//      for (unsigned j = 0; j < N_Blocks; j++) nelements += block_lengths[j];
+//      int nthreads = omp_get_max_threads();
+//      std::vector<std::vector<std::vector<Vector>>> local_ann_deriv(nthreads, std::vector<std::vector<Vector>>(natoms, std::vector<Vector>(nelements, zeroVec)) );
+//      #pragma omp parallel for schedule(dynamic)
+//      for (unsigned j = 0; j < N_Blocks; j++) {
+//        int tid = omp_get_thread_num();
+//        unsigned offset = 0;
+//        for (unsigned jj = 0; jj < j; jj++) offset += block_lengths[jj];
+//        for (unsigned i = 0; i < block_lengths[j]; i++) {
+//          unsigned global_index = offset + i;
+//          Value* valueNew = getPntrToComponent("ELEMENT-" + std::to_string(global_index));
+//          valueNew->set(PIV[j][i]);
+//          for (int k = 0; k < natoms; k++) {
+//            local_ann_deriv[tid][k][global_index] = ann_deriv[k][global_index];
+//          }
+//        }
+//      }
+//      for (int k = 0; k < natoms; k++) {
+//        for (unsigned i = 0; i < nelements; i++) {
+//          Vector total(0., 0., 0.);
+//          for (int t = 0; t < nthreads; t++) {
+//            total += local_ann_deriv[t][k][i];
+//          }
+//          setAtomsDerivatives(getPntrToComponent("ELEMENT-" + std::to_string(i)), k, total);
+//        }
+//      }
+//      timer.stop("valuePass");
+// --- Analytic box (virial) derivatives: matches PLUMED numerical path ---
+
+// 3N atoms = rows in ann_deriv; same atoms you requested with requestAtoms(...)
+      const int Natoms = static_cast<int>(ann_deriv.size());
+
+// Precompute current box and fractional (scaled) coords once per step
+      Tensor box = getPbc().getBox();
+      std::vector<Vector> scaled(Natoms);
+      for (int a = 0; a < Natoms; ++a) {
+        scaled[a] = getPbc().realToScaled(getPosition(a));
+      }
+
+// Build one virial tensor per component (column)
+      std::vector<Tensor> virials(total_PIV_length);
+      for (int col = 0; col < total_PIV_length; ++col) {
+        Tensor dSdB; dSdB.zero();                 // ∂S/∂B at fixed scaled coords
+
+  // dSdB = sum_i  s_i ⊗ g_i  with s_i = scaled (fractional), g_i = ∂S/∂r_i
+        for (int a = 0; a < Natoms; ++a) {
+          const Vector& gi = ann_deriv[a][col];   // atomic gradient for this component
+          if (gi[0]==0.0 && gi[1]==0.0 && gi[2]==0.0) continue;
+          const Vector& si = scaled[a];
+
+    // Outer product: (∂S/∂B)_{ik} += s_i[i] * g_i[k]
+          dSdB(0,0) += si[0]*gi[0];  dSdB(0,1) += si[0]*gi[1];  dSdB(0,2) += si[0]*gi[2];
+          dSdB(1,0) += si[1]*gi[0];  dSdB(1,1) += si[1]*gi[1];  dSdB(1,2) += si[1]*gi[2];
+          dSdB(2,0) += si[2]*gi[0];  dSdB(2,1) += si[2]*gi[1];  dSdB(2,2) += si[2]*gi[2];
+        }
+
+  // PLUMED numerical uses: virial = - B^T * (∂S/∂B)
+        virials[col] = - matmul(box.transpose(), dSdB);
+      }
+
+      for (int col = 0; col < total_PIV_length; ++col) {
+  // If you already have the Value* via getPntrToComponent("ELEMENT-<col>"), reuse it.
+  // Otherwise copyOutput(col) is fine here.
+        Value* v = copyOutput(col);
+
+        for (int i = 0; i < 3; ++i) {      // i = column
+          for (int k = 0; k < 3; ++k) {    // k = row
+            v->addDerivative(3*Natoms + 3*k + i, virials[col](k,i));
+          }
+        }
+      }
+      log << timer;
     }
   }
 }

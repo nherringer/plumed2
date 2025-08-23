@@ -23,6 +23,10 @@ freely, subject to the following restrictions:
 #include <set>
 #include <fstream>
 #include "tools/AtomNumber.h"
+#include <unordered_set>
+#include <utility>
+#include <functional>
+#include "tools/Stopwatch.h"
 
 using namespace std;
 
@@ -33,17 +37,32 @@ struct AtomNumberLess {
   bool operator()(const AtomNumber& a, const AtomNumber& b) const {
     return a.index() < b.index();
   }
-};    
+};
+
+struct pair_hash {
+  std::size_t operator()(const std::pair<AtomNumber, AtomNumber>& p) const {
+    std::size_t h1 = std::hash<int>()(p.first.index());
+    std::size_t h2 = std::hash<int>()(p.second.index());
+    return h1 ^ (h2 << 1);
+  }
+};
+
 // Ideally core/Colvar.h should be moved to this directory and Colvar should stay in namespace PLMD::Sasa
 // With this trick, PLMD::Colvar is visible as PLMD::Sasa::Colvar
 using PLMD::Colvar;
 
+
+
 class PINES      : public Colvar
 {
 private:
-
+  PLMD::Stopwatch timer;
   int N_Blocks;
   int total_PIV_length;
+  int inited_step;
+  int last_step_latched;
+  bool driver_mode;
+  bool freeze_selection;
   std::vector<int> steps_since_update;
   std::vector<int> nstride;
   std::string ref_file;
@@ -74,13 +93,19 @@ private:
   std::vector<std::vector<std::vector<string> > > Name_list;
   std::vector<std::vector<std::vector<AtomNumber> > > ID_list;
   std::vector<std::vector<std::vector<int> > > ResID_list;
+  std::vector<char> all_g1g2_pairs;
   std::vector<std::vector<std::pair<double, std::pair<AtomNumber,AtomNumber> > > > vecMaxHeapVecs;
+  std::vector<std::vector<std::pair<AtomNumber,AtomNumber> > > latched_pairs;
+  std::vector<char> preupdated_block;
+  std::vector<bool> isFirstBuild;
 
   bool atomMatchesFilters(int n, int g, AtomNumber ind, int resid, const std::string& atom_name);
   void buildMaxHeapVecBlock(int n, const PDB& mypdb, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap);
   void updateBlockPairList(int n, std::vector<std::pair<double, std::pair<AtomNumber, AtomNumber>>>& heap);
-  double calculateDistance(const AtomNumber& ind0, const AtomNumber& ind1, const PDB& mypdb);
+  double calculateDistance(int n, const AtomNumber& ind0, const AtomNumber& ind1, const PDB& mypdb);
   std::ofstream log;
+  bool ensureBlockUpdated(int n);
+  void latchFromCurrentHeaps();
   void logMsg(const std::string& msg, const std::string& section);
   void logMsg(const Vector& vec, const std::string& section);
   void resizeAllContainers(int N);
